@@ -319,13 +319,21 @@ export function useCollectionStats(): UseQueryResult<CollectionStats> {
   });
 }
 
-function compareCollectorNumbers(a: string | null, b: string | null): number {
-  const numA = a != null ? parseInt(a, 10) : NaN;
-  const numB = b != null ? parseInt(b, 10) : NaN;
-  if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
-  if (!Number.isNaN(numA)) return -1;
-  if (!Number.isNaN(numB)) return 1;
-  return (a ?? '').localeCompare(b ?? '');
+function collectorParts(card: Pick<Card, 'public_code' | 'collector_number'>): {
+  num: number;
+  suffix: string;
+} {
+  const m = card.public_code?.match(/-(\d+)([a-zA-Z]*)\//);
+  if (m) return { num: parseInt(m[1], 10), suffix: m[2].toLowerCase() };
+  const num = Number(card.collector_number);
+  return { num: Number.isNaN(num) ? Number.POSITIVE_INFINITY : num, suffix: '' };
+}
+
+function compareCards(a: Card, b: Card): number {
+  const pa = collectorParts(a);
+  const pb = collectorParts(b);
+  if (pa.num !== pb.num) return pa.num - pb.num;
+  return pa.suffix.localeCompare(pb.suffix);
 }
 
 function domainSortIndex(card: Card, listKey: string, index: CardsIndex): number {
@@ -378,7 +386,7 @@ export function filterCards(
       const domainCompare =
         domainSortIndex(a, a._listKey, index) - domainSortIndex(b, b._listKey, index);
       if (domainCompare !== 0) return domainCompare;
-      return compareCollectorNumbers(a.collector_number, b.collector_number);
+      return compareCards(a, b);
     });
   }
 
@@ -388,7 +396,7 @@ export function filterCards(
     }
     const setCompare = a.set_id.localeCompare(b.set_id);
     if (setCompare !== 0) return setCompare;
-    return compareCollectorNumbers(a.collector_number, b.collector_number);
+    return compareCards(a, b);
   });
 
   return sorted.map((card) => ({ ...card, _listKey: `${card.id}_0` }));

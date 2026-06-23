@@ -90,20 +90,16 @@ function CountPill({
   const countColor = foil ? 'text-amber-900' : 'text-neutral-900';
 
   return (
-    <View className={`${pillBase} ${display === 0 ? 'p-0.5' : 'px-1 py-0.5'}`}>
+    <View className={`${pillBase} px-1 py-0.5`}>
       {foil ? (
         <Text className="px-0.5 text-[10px] font-bold leading-none text-amber-500">✦</Text>
       ) : null}
-      {display > 0 ? (
-        <QuickBtn onPress={() => change(display - 1)} label="−" />
-      ) : null}
-      {display > 0 ? (
-        <Animated.Text
-          style={countStyle}
-          className={`min-w-[18px] text-center text-xs font-bold ${countColor}`}>
-          {display}
-        </Animated.Text>
-      ) : null}
+      <QuickBtn onPress={() => change(display - 1)} label="−" />
+      <Animated.Text
+        style={countStyle}
+        className={`min-w-[18px] text-center text-xs font-bold ${countColor}`}>
+        {display}
+      </Animated.Text>
       <QuickBtn onPress={() => change(display + 1)} label="+" />
       <QuickBtn onPress={() => change(display + 3)} label="+3" />
     </View>
@@ -167,15 +163,28 @@ function QuickBtn({ onPress, label }: { onPress: () => void; label: string }) {
 // Card image (+ badges)
 // ---------------------------------------------------------------------------
 
-function CardImage({
-  card,
+function CardImage({ card }: { card: Card }) {
+  return card.image_url ? (
+    <Image
+      source={{ uri: card.image_url }}
+      accessibilityLabel={card.image_alt ?? card.name}
+      className="h-full w-full"
+      resizeMode="contain"
+    />
+  ) : (
+    <View className="flex-1 items-center justify-center">
+      <Text className="text-xs text-neutral-400">No image</Text>
+    </View>
+  );
+}
+
+function CardBadges({
   owned,
   foilOwned,
   wishlisted,
   showOwnedBadge,
   canFoil,
 }: {
-  card: Card;
   owned: number;
   foilOwned: number;
   wishlisted: boolean;
@@ -185,19 +194,7 @@ function CardImage({
   const totalOwned = owned + foilOwned;
 
   return (
-    <>
-      {card.image_url ? (
-        <Image
-          source={{ uri: card.image_url }}
-          accessibilityLabel={card.image_alt ?? card.name}
-          className="h-full w-full"
-          resizeMode="contain"
-        />
-      ) : (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-xs text-neutral-400">No image</Text>
-        </View>
-      )}
+    <View pointerEvents="none" className="absolute inset-0">
       {showOwnedBadge && totalOwned > 0 ? (
         canFoil ? (
           <View className="absolute right-1 top-1 items-end gap-0.5">
@@ -224,7 +221,7 @@ function CardImage({
           <Text className="text-xs text-white">♥</Text>
         </View>
       ) : null}
-    </>
+    </View>
   );
 }
 
@@ -302,29 +299,22 @@ function CardTileInner({
         <Link href={`/card/${card.id}`} asChild>
           <Pressable className="absolute inset-0" onPressIn={onPressIn} onPressOut={onPressOut}>
             <Animated.View style={[imageScaleStyle, FILL]}>
-              <CardImage
-                card={card}
-                owned={owned}
-                foilOwned={foilOwned}
-                wishlisted={wishlisted}
-                showOwnedBadge={totalOwned > 0}
-                canFoil={cardCanFoil}
-              />
+              <CardImage card={card} />
             </Animated.View>
           </Pressable>
         </Link>
       ) : (
         <Animated.View style={[imageScaleStyle, FILL]}>
-          <CardImage
-            card={card}
-            owned={owned}
-            foilOwned={foilOwned}
-            wishlisted={wishlisted}
-            showOwnedBadge={showOwnedBadge}
-            canFoil={cardCanFoil}
-          />
+          <CardImage card={card} />
         </Animated.View>
       )}
+      <CardBadges
+        owned={owned}
+        foilOwned={foilOwned}
+        wishlisted={wishlisted}
+        showOwnedBadge={quickAdd ? totalOwned > 0 : showOwnedBadge}
+        canFoil={cardCanFoil}
+      />
       {quickAdd && quickOwnedCb && quickFoilCb ? (
         <QuickAddOverlay
           owned={owned}
