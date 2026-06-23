@@ -49,7 +49,7 @@ export function CardBrowser({
   showGoalSelector = false,
 }: CardBrowserProps) {
   const [filters, setFilters] = useState(defaultCardFilters);
-  const [numColumns, setNumColumns] = useState(3);
+  const [numColumns, setNumColumns] = useState(6);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const { goal } = useCollectionGoal();
 

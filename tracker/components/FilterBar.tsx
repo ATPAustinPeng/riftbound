@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ColumnSlider } from '@/components/ColumnSlider';
 import {
   defaultCardFilters,
   type CardFilters,
@@ -51,8 +52,6 @@ function FilterChip({
     </Pressable>
   );
 }
-
-const COLUMN_OPTIONS = [3, 4, 5, 6, 7, 8, 9] as const;
 
 export function FilterBar({
   filters,
@@ -113,19 +112,15 @@ export function FilterBar({
 
       <View className="gap-2">
         {viewMode === 'grid' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-            <Text className="self-center text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          <View className="flex-row items-center gap-3">
+            <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
               Columns
             </Text>
-            {COLUMN_OPTIONS.map((n) => (
-              <FilterChip
-                key={n}
-                label={String(n)}
-                active={numColumns === n}
-                onPress={() => onColumnsChange(n)}
-              />
-            ))}
-          </ScrollView>
+            <ColumnSlider value={numColumns} min={3} max={8} onChange={onColumnsChange} />
+            <Text className="w-4 text-right text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              {numColumns}
+            </Text>
+          </View>
         ) : null}
         <View className="flex-row flex-wrap items-center gap-2">
           <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Sort</Text>

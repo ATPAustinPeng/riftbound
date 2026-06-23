@@ -77,7 +77,6 @@ export function CardGrid({
   return (
     <View className="flex-1 bg-white dark:bg-neutral-950">
       <FlashList
-        key={numColumns}
         data={cards}
         numColumns={numColumns}
         keyExtractor={(item: Card & { _listKey?: string }) => item._listKey ?? item.id}
