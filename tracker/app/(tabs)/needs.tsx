@@ -3,7 +3,9 @@ import { useCallback, useMemo } from 'react';
 import { CardBrowser } from '@/components/CardBrowser';
 import {
   canBeFoil,
+  evaluateGoal,
   useCardsIndex,
+  useCollectionGoal,
   useUpsertUserCardMutation,
   useUserCardsMap,
 } from '@/lib/queries';
@@ -12,6 +14,7 @@ export default function NeedsScreen() {
   const cardsQuery = useCardsIndex();
   const userCardsQuery = useUserCardsMap();
   const upsertUserCard = useUpsertUserCardMutation();
+  const { goal } = useCollectionGoal();
 
   const handleOwnedChange = useCallback(
     (cardId: string, next: number) => upsertUserCard.mutate({ cardId, quantity_owned: next }),
@@ -28,11 +31,11 @@ export default function NeedsScreen() {
     const userCardsMap = userCardsQuery.data ?? {};
     return cardsQuery.data.cards.filter((card) => {
       const entry = userCardsMap[card.id];
-      const needsNormal = (entry?.quantity_owned ?? 0) < 3;
-      const needsFoil = canBeFoil(card) && (entry?.quantity_owned_foil ?? 0) < 3;
-      return needsNormal || needsFoil;
+      const owned = entry?.quantity_owned ?? 0;
+      const foil = entry?.quantity_owned_foil ?? 0;
+      return !evaluateGoal(goal, owned, foil, canBeFoil(card)).complete;
     });
-  }, [cardsQuery.data, userCardsQuery.data]);
+  }, [cardsQuery.data, userCardsQuery.data, goal]);
 
   const ownedByCardId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -83,6 +86,7 @@ export default function NeedsScreen() {
         isLoading={isLoading}
         isError={isError}
         onRetry={onRetry}
+        showGoalSelector
         emptyMessage="All playsets complete!"
       />
     );
@@ -102,6 +106,7 @@ export default function NeedsScreen() {
       isLoading={isLoading}
       isError={isError}
       onRetry={onRetry}
+      showGoalSelector
       emptyMessage="All playsets complete!"
     />
   );

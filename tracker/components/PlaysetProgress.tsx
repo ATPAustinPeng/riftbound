@@ -1,30 +1,48 @@
 import { Text, View } from 'react-native';
 
-import { PLAYSET_SIZE, playsetProgress } from '@/lib/queries';
+import { evaluateGoal, type CollectionGoal } from '@/lib/queries';
 
 interface PlaysetProgressProps {
-  quantityOwned: number;
+  goal: CollectionGoal;
+  owned: number;
+  foil: number;
+  canFoil: boolean;
   compact?: boolean;
 }
 
-export function PlaysetProgress({ quantityOwned, compact = false }: PlaysetProgressProps) {
-  const { owned, target, complete } = playsetProgress(quantityOwned);
+function ProgressBar({
+  label,
+  current,
+  target,
+  complete,
+  compact,
+}: {
+  label: string;
+  current: number;
+  target: number;
+  complete: boolean;
+  compact: boolean;
+}) {
+  const capped = Math.min(current, target);
+  const widthPct = target > 0 ? (capped / target) * 100 : 0;
 
   return (
     <View className={compact ? 'gap-0.5' : 'gap-1'}>
-      <Text
-        className={
-          compact
-            ? 'text-xs font-medium text-neutral-500 dark:text-neutral-400'
-            : 'text-sm font-medium text-neutral-700 dark:text-neutral-300'
-        }>
-        Playset
-      </Text>
+      {label ? (
+        <Text
+          className={
+            compact
+              ? 'text-xs font-medium text-neutral-500 dark:text-neutral-400'
+              : 'text-sm font-medium text-neutral-700 dark:text-neutral-300'
+          }>
+          {label}
+        </Text>
+      ) : null}
       <View className="flex-row items-center gap-2">
         <View className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
           <View
             className={`h-full rounded-full ${complete ? 'bg-emerald-500' : 'bg-blue-500'}`}
-            style={{ width: `${(owned / PLAYSET_SIZE) * 100}%` }}
+            style={{ width: `${widthPct}%` }}
           />
         </View>
         <Text
@@ -33,9 +51,53 @@ export function PlaysetProgress({ quantityOwned, compact = false }: PlaysetProgr
               ? 'text-xs font-semibold text-neutral-700 dark:text-neutral-300'
               : 'text-sm font-semibold text-neutral-700 dark:text-neutral-300'
           }>
-          {owned}/{target}
+          {capped}/{target}
         </Text>
       </View>
+    </View>
+  );
+}
+
+export function PlaysetProgress({
+  goal,
+  owned,
+  foil,
+  canFoil,
+  compact = false,
+}: PlaysetProgressProps) {
+  const evaluation = evaluateGoal(goal, owned, foil, canFoil);
+
+  if (evaluation.combined) {
+    const total = owned + foil;
+    return (
+      <ProgressBar
+        label="Goal"
+        current={total}
+        target={evaluation.target}
+        complete={evaluation.complete}
+        compact={compact}
+      />
+    );
+  }
+
+  return (
+    <View className={compact ? 'gap-1.5' : 'gap-2'}>
+      <ProgressBar
+        label="Normal"
+        current={owned}
+        target={evaluation.target}
+        complete={evaluation.normalComplete}
+        compact={compact}
+      />
+      {canFoil && goal !== 'playset_normal' ? (
+        <ProgressBar
+          label="Foil"
+          current={foil}
+          target={evaluation.target}
+          complete={evaluation.foilComplete}
+          compact={compact}
+        />
+      ) : null}
     </View>
   );
 }

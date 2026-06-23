@@ -3,6 +3,8 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/lib/auth-context';
 
+import { CollectionGoalSelector } from '@/components/CollectionGoalSelector';
+
 export default function ProfileScreen() {
   const { user, profile, signOut } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -29,6 +31,11 @@ export default function ProfileScreen() {
       <Text className="mb-1 text-sm uppercase tracking-wide text-neutral-500">Signed in as</Text>
       <Text className="mb-1 text-2xl font-bold text-neutral-900 dark:text-white">{displayName}</Text>
       <Text className="mb-8 text-base text-neutral-600 dark:text-neutral-400">{user?.email ?? '—'}</Text>
+
+      <View className="mb-8 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <Text className="mb-3 text-sm font-medium text-neutral-500">Collection goal</Text>
+        <CollectionGoalSelector />
+      </View>
 
       <View className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <Text className="mb-1 text-sm font-medium text-neutral-500">Account</Text>

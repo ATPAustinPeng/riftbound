@@ -12,12 +12,116 @@ import type {
   CardDomain,
   CardTag,
   CardWithMeta,
+  CollectionGoal,
   CollectionStats,
   Set,
   UserCard,
   WishlistItem,
   WishlistItemWithCard,
 } from '@/lib/types';
+import { DEFAULT_COLLECTION_GOAL, isValidCollectionGoal } from '@/lib/types';
+
+export type { CollectionGoal };
+export { DEFAULT_COLLECTION_GOAL, isValidCollectionGoal };
+
+export const COLLECTION_GOALS: Array<{
+  id: CollectionGoal;
+  shortLabel: string;
+  description: string;
+  statsSubtitle: string;
+}> = [
+  {
+    id: 'single_separate',
+    shortLabel: '1 each',
+    description: '1 normal and 1 foil copy of each card (foil only for commons/uncommons).',
+    statsSubtitle: '1+ each',
+  },
+  {
+    id: 'playset_separate',
+    shortLabel: '3 each',
+    description: '3 normal and 3 foil copies of each card (foil only for commons/uncommons).',
+    statsSubtitle: '3+ each',
+  },
+  {
+    id: 'playset_normal',
+    shortLabel: 'Playset (normal only)',
+    description: '3 normal copies; foil not required.',
+    statsSubtitle: '3+ normal',
+  },
+  {
+    id: 'single_combined',
+    shortLabel: '1 total',
+    description: '1 copy of each card, counting normal and foil together.',
+    statsSubtitle: '1+ combined',
+  },
+  {
+    id: 'playset_combined',
+    shortLabel: '3 total',
+    description: '3 copies of each card, counting normal and foil together.',
+    statsSubtitle: '3+ combined',
+  },
+];
+
+export interface GoalEvaluation {
+  target: number;
+  combined: boolean;
+  normalComplete: boolean;
+  foilComplete: boolean;
+  complete: boolean;
+}
+
+export function evaluateGoal(
+  goal: CollectionGoal,
+  owned: number,
+  foil: number,
+  canFoil: boolean,
+): GoalEvaluation {
+  if (goal === 'playset_normal') {
+    const complete = owned >= 3;
+    return {
+      target: 3,
+      combined: false,
+      normalComplete: complete,
+      foilComplete: true,
+      complete,
+    };
+  }
+
+  const target = goal.startsWith('single') ? 1 : 3;
+  const combined = goal.endsWith('combined');
+
+  if (combined) {
+    const total = owned + foil;
+    const complete = total >= target;
+    return {
+      target,
+      combined: true,
+      normalComplete: complete,
+      foilComplete: complete,
+      complete,
+    };
+  }
+
+  const normalComplete = owned >= target;
+  if (!canFoil) {
+    return {
+      target,
+      combined: false,
+      normalComplete,
+      foilComplete: true,
+      complete: normalComplete,
+    };
+  }
+
+  const foilComplete = foil >= target;
+  return {
+    target,
+    combined: false,
+    normalComplete,
+    foilComplete,
+    complete: normalComplete && foilComplete,
+  };
+}
 
 const CARDS_STALE_TIME = 1000 * 60 * 60 * 24; // 24h — reference data is static
 
@@ -27,7 +131,8 @@ export const queryKeys = {
   card: (id: string) => ['cards', id] as const,
   userCards: (userId: string) => ['userCards', userId] as const,
   wishlist: (userId: string) => ['wishlist', userId] as const,
-  collectionStats: (userId: string) => ['collectionStats', userId] as const,
+  collectionStats: (userId: string, goal: CollectionGoal) =>
+    ['collectionStats', userId, goal] as const,
 };
 
 export interface CardsIndex {
@@ -167,14 +272,35 @@ async function fetchWishlist(userId: string): Promise<Record<string, WishlistIte
   return Object.fromEntries(rows.map((row) => [row.card_id, row]));
 }
 
-async function fetchCollectionStats(userId: string): Promise<CollectionStats> {
-  const [summaryResult, completionResult] = await Promise.all([
+function countGoalCompleteCards(
+  cards: Card[],
+  userCards: Record<string, UserCard>,
+  goal: CollectionGoal,
+): number {
+  let count = 0;
+  for (const card of cards) {
+    const entry = userCards[card.id];
+    const owned = entry?.quantity_owned ?? 0;
+    const foil = entry?.quantity_owned_foil ?? 0;
+    if (evaluateGoal(goal, owned, foil, canBeFoil(card)).complete) {
+      count++;
+    }
+  }
+  return count;
+}
+
+async function fetchCollectionStats(userId: string, goal: CollectionGoal): Promise<CollectionStats> {
+  const [summaryResult, completionResult, index, userCards] = await Promise.all([
     supabase.rpc('get_my_collection_summary'),
     supabase.rpc('get_my_set_completion'),
+    fetchCardsIndex(),
+    fetchUserCards(userId),
   ]);
 
+  const complete_playsets = countGoalCompleteCards(index.cards, userCards, goal);
+
   if (summaryResult.error) {
-    return computeCollectionStatsClientSide(userId);
+    return computeCollectionStatsClientSide(userId, goal, index, userCards, complete_playsets);
   }
 
   const summary = summaryResult.data?.[0] ?? {
@@ -203,35 +329,41 @@ async function fetchCollectionStats(userId: string): Promise<CollectionStats> {
 
   return {
     unique_owned: Number(summary.unique_owned),
-    complete_playsets: Number(summary.complete_playsets),
+    complete_playsets,
     total_for_sale: Number(summary.total_for_sale),
     set_completion: setCompletion,
   };
 }
 
-async function computeCollectionStatsClientSide(userId: string): Promise<CollectionStats> {
-  const [index, userCards] = await Promise.all([
-    fetchCardsIndex(),
-    fetchUserCards(userId),
+async function computeCollectionStatsClientSide(
+  userId: string,
+  goal: CollectionGoal,
+  index?: CardsIndex,
+  userCards?: Record<string, UserCard>,
+  completePlaysets?: number,
+): Promise<CollectionStats> {
+  const [resolvedIndex, resolvedUserCards] = await Promise.all([
+    index ?? fetchCardsIndex(),
+    userCards ?? fetchUserCards(userId),
   ]);
 
-  const ownedEntries = Object.values(userCards).filter(
+  const ownedEntries = Object.values(resolvedUserCards).filter(
     (uc) => uc.quantity_owned + (uc.quantity_owned_foil ?? 0) > 0,
   );
   const cardsBySet = new Map<string, number>();
 
-  for (const card of index.cards) {
+  for (const card of resolvedIndex.cards) {
     cardsBySet.set(card.set_id, (cardsBySet.get(card.set_id) ?? 0) + 1);
   }
 
   const ownedBySet = new Map<string, number>();
   for (const uc of ownedEntries) {
-    const card = index.cards.find((c) => c.id === uc.card_id);
+    const card = resolvedIndex.cards.find((c) => c.id === uc.card_id);
     if (!card) continue;
     ownedBySet.set(card.set_id, (ownedBySet.get(card.set_id) ?? 0) + 1);
   }
 
-  const set_completion = index.sets.map((set) => {
+  const set_completion = resolvedIndex.sets.map((set) => {
     const owned_count = ownedBySet.get(set.id) ?? 0;
     const total_count = cardsBySet.get(set.id) ?? 0;
     return {
@@ -245,9 +377,9 @@ async function computeCollectionStatsClientSide(userId: string): Promise<Collect
 
   return {
     unique_owned: ownedEntries.length,
-    complete_playsets: ownedEntries.filter(
-      (uc) => uc.quantity_owned + (uc.quantity_owned_foil ?? 0) >= 3,
-    ).length,
+    complete_playsets:
+      completePlaysets ??
+      countGoalCompleteCards(resolvedIndex.cards, resolvedUserCards, goal),
     total_for_sale: ownedEntries.reduce((sum, uc) => sum + uc.for_sale_count, 0),
     set_completion,
   };
@@ -309,12 +441,26 @@ export function useWishlistMap(): UseQueryResult<Record<string, WishlistItem>> {
   });
 }
 
+export function useCollectionGoal(): {
+  goal: CollectionGoal;
+  setGoal: (goal: CollectionGoal) => Promise<void>;
+} {
+  const { profile, setCollectionGoal } = useAuth();
+  const goal = profile?.collection_goal ?? DEFAULT_COLLECTION_GOAL;
+
+  return {
+    goal,
+    setGoal: setCollectionGoal,
+  };
+}
+
 export function useCollectionStats(): UseQueryResult<CollectionStats> {
   const { user } = useAuth();
+  const { goal } = useCollectionGoal();
 
   return useQuery({
-    queryKey: queryKeys.collectionStats(user?.id ?? ''),
-    queryFn: () => fetchCollectionStats(user!.id),
+    queryKey: queryKeys.collectionStats(user?.id ?? '', goal),
+    queryFn: () => fetchCollectionStats(user!.id, goal),
     enabled: !!user?.id,
   });
 }
@@ -514,7 +660,7 @@ export function useUpsertUserCardMutation() {
     },
     onSettled: () => {
       // Only invalidate stats (not userCards) — avoids a grid-churn refetch on every click
-      queryClient.invalidateQueries({ queryKey: queryKeys.collectionStats(userId) });
+      queryClient.invalidateQueries({ queryKey: ['collectionStats', userId] });
     },
   });
 }

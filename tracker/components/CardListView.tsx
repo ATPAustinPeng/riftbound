@@ -6,8 +6,9 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import {
   canBeFoil,
   DOMAIN_COLORS,
-  PLAYSET_SIZE,
+  evaluateGoal,
   type CardsIndex,
+  type CollectionGoal,
   type FilteredCard,
 } from '@/lib/queries';
 
@@ -19,6 +20,7 @@ interface CardListViewProps {
   ownedByCardId?: Record<string, number>;
   foilOwnedByCardId?: Record<string, number>;
   quantityMode: 'owned' | 'needed';
+  goal?: CollectionGoal;
   quickAdd?: boolean;
   onOwnedChange?: (cardId: string, next: number) => void;
   onFoilOwnedChange?: (cardId: string, next: number) => void;
@@ -51,18 +53,20 @@ function CompactButton({
 function ProgressRow({
   label,
   owned,
+  target,
   onDecrement,
   onIncrement,
   showControls,
 }: {
   label: string;
   owned: number;
+  target: number;
   onDecrement?: () => void;
   onIncrement?: () => void;
   showControls: boolean;
 }) {
-  const capped = Math.min(owned, PLAYSET_SIZE);
-  const complete = owned >= PLAYSET_SIZE;
+  const capped = Math.min(owned, target);
+  const complete = owned >= target;
 
   return (
     <View className="gap-0.5">
@@ -73,11 +77,11 @@ function ProgressRow({
         <View className="h-1.5 w-12 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
           <View
             className={`h-full rounded-full ${complete ? 'bg-emerald-500' : 'bg-blue-500'}`}
-            style={{ width: `${(capped / PLAYSET_SIZE) * 100}%` }}
+            style={{ width: `${target > 0 ? (capped / target) * 100 : 0}%` }}
           />
         </View>
         <Text className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-          {capped}/{PLAYSET_SIZE}
+          {capped}/{target}
         </Text>
         {showControls ? (
           <View className="flex-row items-center gap-0.5">
@@ -96,6 +100,7 @@ function CardListRow({
   owned,
   foilOwned,
   quantityMode,
+  goal,
   quickAdd,
   onOwnedChange,
   onFoilOwnedChange,
@@ -105,6 +110,7 @@ function CardListRow({
   owned: number;
   foilOwned: number;
   quantityMode: 'owned' | 'needed';
+  goal?: CollectionGoal;
   quickAdd?: boolean;
   onOwnedChange?: (cardId: string, next: number) => void;
   onFoilOwnedChange?: (cardId: string, next: number) => void;
@@ -112,6 +118,7 @@ function CardListRow({
   const cardCanFoil = canBeFoil(card);
   const domains = index.domainsByCardId[card.id] ?? [];
   const showControls = quickAdd && (!!onOwnedChange || !!onFoilOwnedChange);
+  const evaluation = goal ? evaluateGoal(goal, owned, foilOwned, cardCanFoil) : null;
 
   return (
     <View className="flex-row items-center gap-2 border-b border-neutral-100 py-2.5 dark:border-neutral-900">
@@ -193,19 +200,36 @@ function CardListRow({
               </View>
             ) : null}
           </>
+        ) : evaluation?.combined ? (
+          <ProgressRow
+            label=""
+            owned={owned + foilOwned}
+            target={evaluation.target}
+            showControls={!!(showControls && onOwnedChange)}
+            onDecrement={() => {
+              if (foilOwned > 0) {
+                onFoilOwnedChange?.(card.id, foilOwned - 1);
+              } else {
+                onOwnedChange?.(card.id, owned - 1);
+              }
+            }}
+            onIncrement={() => onOwnedChange?.(card.id, owned + 1)}
+          />
         ) : (
           <>
             <ProgressRow
               label=""
               owned={owned}
+              target={evaluation?.target ?? 3}
               showControls={!!(showControls && onOwnedChange)}
               onDecrement={() => onOwnedChange?.(card.id, owned - 1)}
               onIncrement={() => onOwnedChange?.(card.id, owned + 1)}
             />
-            {cardCanFoil ? (
+            {cardCanFoil && goal !== 'playset_normal' ? (
               <ProgressRow
                 label="✦"
                 owned={foilOwned}
+                target={evaluation?.target ?? 3}
                 showControls={!!(showControls && onFoilOwnedChange)}
                 onDecrement={() => onFoilOwnedChange?.(card.id, foilOwned - 1)}
                 onIncrement={() => onFoilOwnedChange?.(card.id, foilOwned + 1)}
@@ -224,6 +248,7 @@ export function CardListView({
   ownedByCardId,
   foilOwnedByCardId,
   quantityMode,
+  goal,
   quickAdd = false,
   onOwnedChange,
   onFoilOwnedChange,
@@ -276,6 +301,7 @@ export function CardListView({
             owned={ownedByCardId?.[item.id] ?? 0}
             foilOwned={foilOwnedByCardId?.[item.id] ?? 0}
             quantityMode={quantityMode}
+            goal={goal}
             quickAdd={quickAdd}
             onOwnedChange={onOwnedChange}
             onFoilOwnedChange={onFoilOwnedChange}

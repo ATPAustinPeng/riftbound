@@ -20,6 +20,7 @@ import {
   getOwnedQuantity,
   isWishlisted,
   useCard,
+  useCollectionGoal,
   useToggleWishlistMutation,
   useUpsertUserCardMutation,
   useUserCardsMap,
@@ -44,6 +45,7 @@ export default function CardDetailScreen() {
   const wishlistQuery = useWishlistMap();
   const upsertUserCard = useUpsertUserCardMutation();
   const toggleWishlist = useToggleWishlistMutation();
+  const { goal } = useCollectionGoal();
 
   const card = cardQuery.data;
   const owned = getOwnedQuantity(userCardsQuery.data, id ?? '');
@@ -154,7 +156,12 @@ export default function CardDetailScreen() {
           <Text className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
             Your collection
           </Text>
-          <PlaysetProgress quantityOwned={combinedOwned} />
+          <PlaysetProgress
+            goal={goal}
+            owned={owned}
+            foil={foilOwned}
+            canFoil={cardCanFoil}
+          />
           {cardCanFoil && combinedOwned > 0 ? (
             <Text className="text-xs text-neutral-500 dark:text-neutral-400">
               {owned} normal{owned === 1 ? '' : 's'}

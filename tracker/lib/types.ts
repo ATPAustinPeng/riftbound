@@ -1,5 +1,24 @@
 /** Database row types mirroring supabase/migrations/0001_init.sql */
 
+export type CollectionGoal =
+  | 'single_separate'
+  | 'playset_separate'
+  | 'playset_normal'
+  | 'single_combined'
+  | 'playset_combined';
+
+export const DEFAULT_COLLECTION_GOAL: CollectionGoal = 'playset_separate';
+
+export function isValidCollectionGoal(value: unknown): value is CollectionGoal {
+  return (
+    value === 'single_separate' ||
+    value === 'playset_separate' ||
+    value === 'playset_normal' ||
+    value === 'single_combined' ||
+    value === 'playset_combined'
+  );
+}
+
 export interface Set {
   id: string;
   label: string;
@@ -45,6 +64,7 @@ export interface CardTag {
 export interface Profile {
   id: string;
   display_name: string | null;
+  collection_goal: CollectionGoal;
   created_at: string;
 }
 

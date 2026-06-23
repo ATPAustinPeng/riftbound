@@ -100,6 +100,7 @@ export default function CollectionScreen() {
         isLoading={isLoading}
         isError={isError}
         onRetry={onRetry}
+        showGoalSelector
         emptyMessage="No cards in your collection yet. Browse cards and add owned copies from the card detail screen."
       />
     );
@@ -125,6 +126,7 @@ export default function CollectionScreen() {
       isLoading={isLoading}
       isError={isError}
       onRetry={onRetry}
+      showGoalSelector
       emptyMessage="No cards in your collection yet. Browse cards and add owned copies from the card detail screen."
     />
   );

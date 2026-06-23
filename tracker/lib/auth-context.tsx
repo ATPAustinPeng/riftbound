@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { Profile } from '@/lib/types';
+import { Profile, DEFAULT_COLLECTION_GOAL, isValidCollectionGoal, type CollectionGoal } from '@/lib/types';
 
 import { supabase } from './supabase';
 
@@ -20,6 +20,7 @@ interface AuthContextValue {
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setCollectionGoal: (goal: CollectionGoal) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, created_at')
+    .select('id, display_name, collection_goal, created_at')
     .eq('id', userId)
     .maybeSingle();
 
@@ -36,7 +37,14 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     return null;
   }
 
-  return data;
+  if (!data) return null;
+
+  return {
+    ...data,
+    collection_goal: isValidCollectionGoal(data.collection_goal)
+      ? data.collection_goal
+      : DEFAULT_COLLECTION_GOAL,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -92,6 +100,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const setCollectionGoal = useCallback(
+    async (goal: CollectionGoal) => {
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('Not signed in');
+
+      setProfile((current) =>
+        current ? { ...current, collection_goal: goal } : current,
+      );
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ collection_goal: goal })
+        .eq('id', userId);
+
+      if (error) {
+        await refreshProfile();
+        throw error;
+      }
+    },
+    [session?.user?.id, refreshProfile],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -100,8 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       signOut,
       refreshProfile,
+      setCollectionGoal,
     }),
-    [session, profile, isLoading, signOut, refreshProfile],
+    [session, profile, isLoading, signOut, refreshProfile, setCollectionGoal],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

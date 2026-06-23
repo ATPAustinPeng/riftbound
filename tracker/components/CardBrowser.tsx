@@ -4,8 +4,9 @@ import { Text, View } from 'react-native';
 
 import { CardGrid } from '@/components/CardGrid';
 import { CardListView } from '@/components/CardListView';
+import { CollectionGoalSelector } from '@/components/CollectionGoalSelector';
 import { defaultCardFilters, FilterBar } from '@/components/FilterBar';
-import { filterCards, type CardsIndex, type ViewMode } from '@/lib/queries';
+import { filterCards, useCollectionGoal, type CardsIndex, type ViewMode } from '@/lib/queries';
 import type { Card } from '@/lib/types';
 
 interface CardBrowserProps {
@@ -25,6 +26,7 @@ interface CardBrowserProps {
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  showGoalSelector?: boolean;
 }
 
 export function CardBrowser({
@@ -44,10 +46,12 @@ export function CardBrowser({
   isLoading,
   isError,
   onRetry,
+  showGoalSelector = false,
 }: CardBrowserProps) {
   const [filters, setFilters] = useState(defaultCardFilters);
   const [numColumns, setNumColumns] = useState(3);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const { goal } = useCollectionGoal();
 
   const filteredCards = useMemo(
     () => filterCards(cards, filters, index),
@@ -57,6 +61,7 @@ export function CardBrowser({
   const header = (
     <View className="pb-2 pt-1">
       {headerExtra}
+      {showGoalSelector ? <CollectionGoalSelector compact /> : null}
       <FilterBar
         filters={filters}
         onChange={setFilters}
@@ -80,6 +85,7 @@ export function CardBrowser({
         ownedByCardId={ownedByCardId}
         foilOwnedByCardId={foilOwnedByCardId}
         quantityMode={listQuantityMode}
+        goal={goal}
         quickAdd={quickAdd}
         onOwnedChange={onOwnedChange}
         onFoilOwnedChange={onFoilOwnedChange}

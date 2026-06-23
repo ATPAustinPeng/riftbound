@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { StatCard } from '@/components/StatCard';
-import { useCollectionStats } from '@/lib/queries';
+import { COLLECTION_GOALS, useCollectionGoal, useCollectionStats } from '@/lib/queries';
 
 interface CollectionStatsPanelProps {
   compact?: boolean;
@@ -9,6 +9,8 @@ interface CollectionStatsPanelProps {
 
 export function CollectionStatsPanel({ compact = false }: CollectionStatsPanelProps) {
   const { data: stats, isLoading, isError, refetch, isRefetching } = useCollectionStats();
+  const { goal } = useCollectionGoal();
+  const goalMeta = COLLECTION_GOALS.find((option) => option.id === goal);
 
   if (isLoading) {
     return (
@@ -35,7 +37,11 @@ export function CollectionStatsPanel({ compact = false }: CollectionStatsPanelPr
     <View className={compact ? 'gap-3' : 'gap-4'}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
         <StatCard label="Unique owned" value={stats.unique_owned} />
-        <StatCard label="Complete playsets" value={stats.complete_playsets} subtitle="3+ copies" />
+        <StatCard
+          label="Complete playsets"
+          value={stats.complete_playsets}
+          subtitle={goalMeta?.statsSubtitle ?? 'Goal complete'}
+        />
         <StatCard label="For sale" value={stats.total_for_sale} subtitle="Listed extras" />
       </ScrollView>
 

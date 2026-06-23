@@ -16,6 +16,7 @@ Cross-platform (iOS + web) collection tracker for Riftbound TCG. Browse ~952 ref
    - `supabase/migrations/0001_init.sql` — reference tables, user tables, RLS, profile trigger, and **Postgres role grants**
    - `supabase/migrations/0002_stats.sql` — collection stats RPCs and set totals view
    - `supabase/migrations/0003_foil.sql` — foil owned column and combined playset stats
+   - `supabase/migrations/0004_collection_goal.sql` — per-user collection goal on `profiles`
 3. Enable **Email** auth under **Authentication → Providers** (enabled by default).
 4. Copy your project credentials from **Project Settings → API**:
    - **Project URL**
@@ -96,13 +97,26 @@ Press `i` for iOS, `w` for web, or scan the QR code.
 | Tab | Description |
 |-----|-------------|
 | **Browse** | FlashList grid of all cards with name search and set/rarity/domain/type filters |
-| **Collection** | Owned cards grouped by set with quantity steppers and stats dashboard |
+| **Collection** | Owned cards grouped by set with quantity steppers, goal-aware stats, and a quick goal selector |
+| **Needs** | Cards you still need for your collection goal, with list progress toward that goal |
 | **Wishlist** | Want-list with one-tap remove or mark-owned |
-| **Profile** | Display name and sign out |
+| **Profile** | Collection goal picker (synced across devices), display name, and sign out |
 
-Tap any card to open its detail screen: full image, stats, owned/for-sale steppers, playset progress (×3), wishlist toggle, and notes.
+Tap any card to open its detail screen: full image, stats, owned/for-sale steppers, goal progress, wishlist toggle, and notes.
 
-**Foil tracking:** Common and uncommon cards support separate normal and foil owned counts (`quantity_owned_foil` on `user_cards`). Use the ✦ toggle on browse quick-add tiles or the "Owned (foil)" stepper on the detail screen. Playset progress and collection stats count normal + foil copies together; `for_sale_count` remains a single number per card.
+**Collection goal:** Choose how many copies count as "complete" for each card. Five options:
+
+| Goal | Complete when |
+|------|----------------|
+| **1 each** (`single_separate`) | 1 normal + 1 foil (foil only for commons/uncommons) |
+| **3 each** (`playset_separate`) | 3 normal + 3 foil (default; classic playset tracking) |
+| **Playset (normal only)** (`playset_normal`) | 3 normal copies; foil ignored |
+| **1 total** (`single_combined`) | 1 copy, normal + foil combined |
+| **3 total** (`playset_combined`) | 3 copies, normal + foil combined |
+
+The goal is stored on your Supabase `profiles` row and drives the Needs tab, list progress bars, card detail progress, and the Collection stats "complete" count. Foil requirements only apply to commons and uncommons in separate mode; higher rarities ignore the foil track there.
+
+**Foil tracking:** Common and uncommon cards support separate normal and foil owned counts (`quantity_owned_foil` on `user_cards`). Use the ✦ toggle on browse quick-add tiles or the "Owned (foil)" stepper on the detail screen. In combined goal mode, normal and foil copies count together toward the target; `for_sale_count` remains a single number per card.
 
 ## Project structure
 
@@ -147,7 +161,7 @@ cd tracker && npx tsc --noEmit
   grant all on public.wishlist     to service_role;
   ```
 - **Auth errors** — Check `.env.local` values match your Supabase project. Use the **anon** key (not service_role) for `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-- **Stats show zeros** — Ensure `0002_stats.sql` was applied; the app falls back to client-side computation if RPCs are missing. After adding foil tracking, also run `0003_foil.sql` so stats count normal + foil copies.
+- **Stats show zeros** — Ensure `0002_stats.sql` was applied; the app falls back to client-side computation if RPCs are missing. After adding foil tracking, also run `0003_foil.sql`. Run `0004_collection_goal.sql` so the Profile goal picker can persist to the database.
 - **"Failed to fetch profile"** — Usually the `profiles` grant is missing; see the permission denied fix above.
 - **`npm install` hitting Artifactory / `403 Forbidden`** — Your machine's `~/.npmrc` or `NPM_CONFIG_REGISTRY` env var is pointing to a corporate registry. The `tracker/.npmrc` in this repo sets `registry=https://registry.npmjs.org` to override it. If the error persists, the env var is taking precedence; run: `NPM_CONFIG_REGISTRY=https://registry.npmjs.org npm install`
 
