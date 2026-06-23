@@ -193,22 +193,47 @@ function throwOnError<T>(result: { data: T | null; error: { message: string } | 
   return result.data;
 }
 
+// Supabase/PostgREST caps a single response at 1000 rows. Reference tables
+// (card_domains, card_tags) and the cards table already approach or exceed
+// that, so we must page through with .range() or rows get silently dropped.
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchAllRows<T>(
+  table: string,
+  orderColumns: string[],
+  eq?: { column: string; value: string },
+): Promise<T[]> {
+  const rows: T[] = [];
+  let from = 0;
+
+  for (;;) {
+    let query = supabase.from(table).select('*');
+    if (eq) query = query.eq(eq.column, eq.value);
+    for (const col of orderColumns) query = query.order(col);
+
+    const page = throwOnError<T[]>(
+      await query.range(from, from + SUPABASE_PAGE_SIZE - 1),
+    );
+    rows.push(...page);
+
+    if (page.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 async function fetchSets(): Promise<Set[]> {
-  const result = await supabase.from('sets').select('*').order('label');
-  return throwOnError(result);
+  return fetchAllRows<Set>('sets', ['label']);
 }
 
 async function fetchCardsIndex(): Promise<CardsIndex> {
-  const [sets, cardsResult, domainsResult, tagsResult] = await Promise.all([
+  const [sets, cards, domains, tags] = await Promise.all([
     fetchSets(),
-    supabase.from('cards').select('*').order('name'),
-    supabase.from('card_domains').select('*'),
-    supabase.from('card_tags').select('*'),
+    fetchAllRows<Card>('cards', ['id']),
+    fetchAllRows<CardDomain>('card_domains', ['card_id', 'domain_id']),
+    fetchAllRows<CardTag>('card_tags', ['card_id', 'tag']),
   ]);
-
-  const cards = throwOnError(cardsResult);
-  const domains = throwOnError(domainsResult);
-  const tags = throwOnError(tagsResult);
 
   const domainsByCardId: Record<string, CardDomain[]> = {};
   for (const domain of domains) {
@@ -261,14 +286,18 @@ async function fetchCardsIndex(): Promise<CardsIndex> {
 }
 
 async function fetchUserCards(userId: string): Promise<Record<string, UserCard>> {
-  const result = await supabase.from('user_cards').select('*').eq('user_id', userId);
-  const rows = throwOnError(result);
+  const rows = await fetchAllRows<UserCard>('user_cards', ['card_id'], {
+    column: 'user_id',
+    value: userId,
+  });
   return Object.fromEntries(rows.map((row) => [row.card_id, row]));
 }
 
 async function fetchWishlist(userId: string): Promise<Record<string, WishlistItem>> {
-  const result = await supabase.from('wishlist').select('*').eq('user_id', userId);
-  const rows = throwOnError(result);
+  const rows = await fetchAllRows<WishlistItem>('wishlist', ['card_id'], {
+    column: 'user_id',
+    value: userId,
+  });
   return Object.fromEntries(rows.map((row) => [row.card_id, row]));
 }
 
@@ -482,14 +511,21 @@ function compareCards(a: Card, b: Card): number {
   return pa.suffix.localeCompare(pb.suffix);
 }
 
-function domainSortIndex(card: Card, listKey: string, index: CardsIndex): number {
-  let domainId: string | null = null;
-  if (listKey.endsWith('_0')) {
-    const domains = index.domainsByCardId[card.id] ?? [];
-    domainId = domains.length === 1 ? domains[0].domain_id : null;
-  } else {
-    domainId = listKey.slice(card.id.length + 1);
-  }
+const DOMAIN_LIST_KEY_NONE = 'none';
+
+function domainListKey(cardId: string, domainId: string | null): string {
+  return `${cardId}@${domainId ?? DOMAIN_LIST_KEY_NONE}`;
+}
+
+function parseDomainListKey(listKey: string): string | null {
+  const at = listKey.lastIndexOf('@');
+  if (at === -1) return null;
+  const domainId = listKey.slice(at + 1);
+  return domainId === DOMAIN_LIST_KEY_NONE ? null : domainId;
+}
+
+function domainSortIndex(_card: Card, listKey: string): number {
+  const domainId = parseDomainListKey(listKey);
   if (!domainId) return NO_DOMAIN_SORT_INDEX;
   return DOMAIN_COLOR_ORDER[domainId] ?? NO_DOMAIN_SORT_INDEX;
 }
@@ -518,19 +554,22 @@ export function filterCards(
 
     for (const card of filtered) {
       const domains = index.domainsByCardId[card.id] ?? [];
+      const seenDomainIds = new Set<string>();
 
-      if (domains.length > 1) {
-        for (const domain of domains) {
-          expanded.push({ ...card, _listKey: `${card.id}_${domain.domain_id}` });
-        }
-      } else {
-        expanded.push({ ...card, _listKey: `${card.id}_0` });
+      if (domains.length === 0) {
+        expanded.push({ ...card, _listKey: domainListKey(card.id, null) });
+        continue;
+      }
+
+      for (const domain of domains) {
+        if (seenDomainIds.has(domain.domain_id)) continue;
+        seenDomainIds.add(domain.domain_id);
+        expanded.push({ ...card, _listKey: domainListKey(card.id, domain.domain_id) });
       }
     }
 
     return expanded.sort((a, b) => {
-      const domainCompare =
-        domainSortIndex(a, a._listKey, index) - domainSortIndex(b, b._listKey, index);
+      const domainCompare = domainSortIndex(a, a._listKey) - domainSortIndex(b, b._listKey);
       if (domainCompare !== 0) return domainCompare;
       return compareCards(a, b);
     });
