@@ -1,12 +1,13 @@
 import type { ReactElement } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Text, View } from 'react-native';
 
 import { CardGrid } from '@/components/CardGrid';
 import { CardListView } from '@/components/CardListView';
 import { CollectionGoalSelector } from '@/components/CollectionGoalSelector';
-import { defaultCardFilters, FilterBar } from '@/components/FilterBar';
-import { filterCards, useCollectionGoal, type CardsIndex, type ViewMode } from '@/lib/queries';
+import { FilterBar } from '@/components/FilterBar';
+import { useBrowserState } from '@/lib/browser-store';
+import { filterCards, useCollectionGoal, type CardsIndex } from '@/lib/queries';
 import type { Card } from '@/lib/types';
 
 interface CardBrowserProps {
@@ -48,9 +49,8 @@ export function CardBrowser({
   onRetry,
   showGoalSelector = false,
 }: CardBrowserProps) {
-  const [filters, setFilters] = useState(defaultCardFilters);
-  const [numColumns, setNumColumns] = useState(6);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const { filters, setFilters, numColumns, setNumColumns, viewMode, setViewMode } =
+    useBrowserState();
   const { goal } = useCollectionGoal();
 
   const filteredCards = useMemo(

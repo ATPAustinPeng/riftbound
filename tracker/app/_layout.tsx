@@ -70,7 +70,16 @@ function RootNavigator() {
     <Stack>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="card/[id]" options={{ title: 'Card Detail' }} />
+      {/*
+        transparentModal keeps the screen below (the tab list) mounted at its
+        real size instead of collapsing it to 0x0. That avoids the FlashList
+        re-render/scroll-reset bug on web when pushing the card detail.
+        The detail screen paints its own opaque background to cover the list.
+      */}
+      <Stack.Screen
+        name="card/[id]"
+        options={{ title: 'Card Detail', presentation: 'transparentModal', headerShown: true }}
+      />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
