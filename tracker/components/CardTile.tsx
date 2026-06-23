@@ -164,16 +164,28 @@ function QuickBtn({ onPress, label }: { onPress: () => void; label: string }) {
 // ---------------------------------------------------------------------------
 
 function CardImage({ card }: { card: Card }) {
-  return card.image_url ? (
-    <Image
-      source={{ uri: card.image_url }}
-      accessibilityLabel={card.image_alt ?? card.name}
-      className="h-full w-full"
-      resizeMode="contain"
-    />
-  ) : (
-    <View className="flex-1 items-center justify-center">
-      <Text className="text-xs text-neutral-400">No image</Text>
+  const [failed, setFailed] = useState(false);
+
+  if (card.image_url && !failed) {
+    return (
+      <Image
+        source={{ uri: card.image_url }}
+        accessibilityLabel={card.image_alt ?? card.name}
+        className="h-full w-full"
+        resizeMode="contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  // No URL or the image failed to load — keep the card name in the box.
+  return (
+    <View className="flex-1 items-center justify-center p-1">
+      <Text
+        className="text-center text-[11px] font-medium text-neutral-500 dark:text-neutral-400"
+        numberOfLines={4}>
+        {card.name}
+      </Text>
     </View>
   );
 }
@@ -250,13 +262,15 @@ function CardTileInner({
   const totalOwned = owned + foilOwned;
   const showOwnedBadge = totalOwned > 0 && !quickAdd;
 
-  // Hover/press affect ONLY the image, never the quick-add controls.
+  // Hover/press grow only the IMAGE, letting it pop out past the tile frame
+  // (the image box + card allow overflow). The hovered tile is z-raised so the
+  // overflowing image draws over its neighbors instead of being painted under.
   const isHovered = useSharedValue(0);
   const imageScale = useSharedValue(1);
 
   const onHoverIn = useCallback(() => {
     isHovered.value = 1;
-    imageScale.value = withTiming(1.06, { duration: 150 });
+    imageScale.value = withTiming(1.07, { duration: 150 });
   }, [isHovered, imageScale]);
 
   const onHoverOut = useCallback(() => {
@@ -269,7 +283,7 @@ function CardTileInner({
   }, [imageScale]);
 
   const onPressOut = useCallback(() => {
-    imageScale.value = withTiming(isHovered.value === 1 ? 1.06 : 1, { duration: 120 });
+    imageScale.value = withTiming(isHovered.value === 1 ? 1.15 : 1, { duration: 120 });
   }, [imageScale, isHovered]);
 
   const imageScaleStyle = useAnimatedStyle(() => ({
@@ -294,7 +308,7 @@ function CardTileInner({
   const imageArea = (
     <View
       {...webHoverProps}
-      className="relative aspect-[5/7] w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
+      className="relative aspect-[5/7] w-full rounded-md bg-neutral-100 dark:bg-neutral-800">
       {quickAdd ? (
         <Link href={`/card/${card.id}`} asChild>
           <Pressable className="absolute inset-0" onPressIn={onPressIn} onPressOut={onPressOut}>
@@ -329,18 +343,10 @@ function CardTileInner({
 
   const content = (
     <View
-      className={`overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 ${
+      className={`overflow-hidden rounded-lg bg-white dark:bg-neutral-900 ${
         compact ? 'p-1' : 'p-2'
       }`}>
       {imageArea}
-
-      {!compact ? (
-        <Text
-          className="mt-1.5 text-xs font-medium text-neutral-800 dark:text-neutral-200"
-          numberOfLines={2}>
-          {card.name}
-        </Text>
-      ) : null}
 
       {showSteppers && onOwnedChange && onForSaleChange ? (
         <View className="mt-2 gap-2">
