@@ -79,7 +79,6 @@ export function CardGrid({
       <FlashList
         data={cards}
         numColumns={numColumns}
-        key={numColumns}
         keyExtractor={(item: Card & { _listKey?: string }) => item._listKey ?? item.id}
         contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
         ListHeaderComponent={ListHeaderComponent ?? undefined}
