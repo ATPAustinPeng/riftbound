@@ -511,23 +511,15 @@ function compareCards(a: Card, b: Card): number {
   return pa.suffix.localeCompare(pb.suffix);
 }
 
-const DOMAIN_LIST_KEY_NONE = 'none';
-
-function domainListKey(cardId: string, domainId: string | null): string {
-  return `${cardId}@${domainId ?? DOMAIN_LIST_KEY_NONE}`;
-}
-
-function parseDomainListKey(listKey: string): string | null {
-  const at = listKey.lastIndexOf('@');
-  if (at === -1) return null;
-  const domainId = listKey.slice(at + 1);
-  return domainId === DOMAIN_LIST_KEY_NONE ? null : domainId;
-}
-
-function domainSortIndex(_card: Card, listKey: string): number {
-  const domainId = parseDomainListKey(listKey);
-  if (!domainId) return NO_DOMAIN_SORT_INDEX;
-  return DOMAIN_COLOR_ORDER[domainId] ?? NO_DOMAIN_SORT_INDEX;
+function colorSortKey(card: Card, index: CardsIndex): { bucket: number; primary: number } {
+  const ids = Array.from(
+    new Set((index.domainsByCardId[card.id] ?? []).map((d) => d.domain_id)),
+  );
+  if (ids.length === 0) {
+    return { bucket: Number.POSITIVE_INFINITY, primary: NO_DOMAIN_SORT_INDEX };
+  }
+  const primary = Math.min(...ids.map((id) => DOMAIN_COLOR_ORDER[id] ?? NO_DOMAIN_SORT_INDEX));
+  return { bucket: ids.length, primary };
 }
 
 export function filterCards(
@@ -550,29 +542,14 @@ export function filterCards(
   });
 
   if (filters.sortBy === 'domain') {
-    const expanded: FilteredCard[] = [];
-
-    for (const card of filtered) {
-      const domains = index.domainsByCardId[card.id] ?? [];
-      const seenDomainIds = new Set<string>();
-
-      if (domains.length === 0) {
-        expanded.push({ ...card, _listKey: domainListKey(card.id, null) });
-        continue;
-      }
-
-      for (const domain of domains) {
-        if (seenDomainIds.has(domain.domain_id)) continue;
-        seenDomainIds.add(domain.domain_id);
-        expanded.push({ ...card, _listKey: domainListKey(card.id, domain.domain_id) });
-      }
-    }
-
-    return expanded.sort((a, b) => {
-      const domainCompare = domainSortIndex(a, a._listKey) - domainSortIndex(b, b._listKey);
-      if (domainCompare !== 0) return domainCompare;
+    const sorted = [...filtered].sort((a, b) => {
+      const ka = colorSortKey(a, index);
+      const kb = colorSortKey(b, index);
+      if (ka.bucket !== kb.bucket) return ka.bucket - kb.bucket;
+      if (ka.primary !== kb.primary) return ka.primary - kb.primary;
       return compareCards(a, b);
     });
+    return sorted.map((card) => ({ ...card, _listKey: card.id }));
   }
 
   const sorted = [...filtered].sort((a, b) => {
