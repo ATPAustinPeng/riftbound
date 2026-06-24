@@ -102,6 +102,12 @@ Press `i` for iOS, `w` for web, or scan the QR code.
 | **Wishlist** | Want-list with one-tap remove or mark-owned |
 | **Profile** | Collection goal picker (synced across devices), display name, and sign out |
 
+**Sorting:** Browse cards can be sorted three ways:
+
+- **Set** (default): grouped by set, then collector number
+- **Color**: by domain color (Fury → Body → Order → Calm → Mind → Chaos), monocolor before multicolor within each color group, then by set, then collector number
+- **Name**: alphabetical by card name
+
 Tap any card to open its detail screen: full image, stats, owned/for-sale steppers, goal progress, wishlist toggle, and notes.
 
 **Collection goal:** Choose how many copies count as "complete" for each card. Five options:

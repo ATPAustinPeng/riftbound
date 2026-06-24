@@ -125,19 +125,19 @@ export function FilterBar({
         <View className="flex-row flex-wrap items-center gap-2">
           <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Sort</Text>
           <FilterChip
-            label="By Number"
-            active={filters.sortBy === 'collector_number'}
-            onPress={() => onChange({ ...filters, sortBy: 'collector_number' })}
+            label="By Set"
+            active={filters.sortBy === 'set'}
+            onPress={() => onChange({ ...filters, sortBy: 'set' })}
+          />
+          <FilterChip
+            label="By Color"
+            active={filters.sortBy === 'color'}
+            onPress={() => onChange({ ...filters, sortBy: 'color' })}
           />
           <FilterChip
             label="By Name"
             active={filters.sortBy === 'name'}
             onPress={() => onChange({ ...filters, sortBy: 'name' })}
-          />
-          <FilterChip
-            label="By Color"
-            active={filters.sortBy === 'domain'}
-            onPress={() => onChange({ ...filters, sortBy: 'domain' })}
           />
           <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">View</Text>
           <FilterChip

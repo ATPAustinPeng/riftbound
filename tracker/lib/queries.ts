@@ -151,8 +151,15 @@ export interface CardFilters {
   rarityId: string | null;
   domainId: string | null;
   cardType: string | null;
-  sortBy: 'name' | 'collector_number' | 'domain';
+  sortBy: 'set' | 'color' | 'name';
 }
+
+export const SET_ORDER: Record<string, number> = {
+  OGS: 0,
+  OGN: 1,
+  SFD: 2,
+  UNL: 3,
+};
 
 export const DOMAIN_COLOR_ORDER: Record<string, number> = {
   fury: 0,
@@ -184,7 +191,7 @@ export const defaultCardFilters: CardFilters = {
   rarityId: null,
   domainId: null,
   cardType: null,
-  sortBy: 'collector_number',
+  sortBy: 'set',
 };
 
 function throwOnError<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -511,6 +518,15 @@ function compareCards(a: Card, b: Card): number {
   return pa.suffix.localeCompare(pb.suffix);
 }
 
+function compareSetIds(a: string, b: string): number {
+  const orderA = SET_ORDER[a];
+  const orderB = SET_ORDER[b];
+  if (orderA !== undefined && orderB !== undefined) return orderA - orderB;
+  if (orderA !== undefined) return -1;
+  if (orderB !== undefined) return 1;
+  return a.localeCompare(b);
+}
+
 function colorSortKey(card: Card, index: CardsIndex): { bucket: number; primary: number } {
   const ids = Array.from(
     new Set((index.domainsByCardId[card.id] ?? []).map((d) => d.domain_id)),
@@ -541,12 +557,14 @@ export function filterCards(
     return true;
   });
 
-  if (filters.sortBy === 'domain') {
+  if (filters.sortBy === 'color') {
     const sorted = [...filtered].sort((a, b) => {
       const ka = colorSortKey(a, index);
       const kb = colorSortKey(b, index);
-      if (ka.bucket !== kb.bucket) return ka.bucket - kb.bucket;
       if (ka.primary !== kb.primary) return ka.primary - kb.primary;
+      if (ka.bucket !== kb.bucket) return ka.bucket - kb.bucket;
+      const setCompare = compareSetIds(a.set_id, b.set_id);
+      if (setCompare !== 0) return setCompare;
       return compareCards(a, b);
     });
     return sorted.map((card) => ({ ...card, _listKey: card.id }));
@@ -556,7 +574,7 @@ export function filterCards(
     if (filters.sortBy === 'name') {
       return a.name.localeCompare(b.name);
     }
-    const setCompare = a.set_id.localeCompare(b.set_id);
+    const setCompare = compareSetIds(a.set_id, b.set_id);
     if (setCompare !== 0) return setCompare;
     return compareCards(a, b);
   });
