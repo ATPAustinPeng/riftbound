@@ -37,6 +37,8 @@ interface CardTileProps {
   onQuickOwnedChange?: (cardId: string, next: number) => void;
   onQuickFoilChange?: (cardId: string, next: number) => void;
   compact?: boolean;
+  dimmed?: boolean;
+  foilMissing?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -196,12 +198,14 @@ function CardBadges({
   wishlisted,
   showOwnedBadge,
   canFoil,
+  foilMissing,
 }: {
   owned: number;
   foilOwned: number;
   wishlisted: boolean;
   showOwnedBadge: boolean;
   canFoil: boolean;
+  foilMissing?: boolean;
 }) {
   const totalOwned = owned + foilOwned;
 
@@ -227,6 +231,11 @@ function CardBadges({
             <Text className="text-xs font-bold text-white">×{totalOwned}</Text>
           </View>
         )
+      ) : foilMissing ? (
+        <View
+          className="absolute right-1 top-1 rounded-full border border-dashed border-amber-400 px-1.5 py-0.5 opacity-40">
+          <Text className="text-[10px] font-bold leading-none text-amber-500">✦</Text>
+        </View>
       ) : null}
       {wishlisted ? (
         <View className="absolute left-1 top-1 rounded-full bg-pink-600 px-1.5 py-0.5">
@@ -256,6 +265,8 @@ function CardTileInner({
   onQuickOwnedChange,
   onQuickFoilChange,
   compact = false,
+  dimmed = false,
+  foilMissing = false,
 }: CardTileProps) {
   const id = cardId ?? card.id;
   const cardCanFoil = canBeFoil(card);
@@ -309,26 +320,31 @@ function CardTileInner({
     <View
       {...webHoverProps}
       className="relative aspect-[5/7] w-full rounded-md bg-neutral-100 dark:bg-neutral-800">
-      {quickAdd ? (
-        <Link href={`/card/${card.id}`} asChild>
-          <Pressable className="absolute inset-0" onPressIn={onPressIn} onPressOut={onPressOut}>
-            <Animated.View style={[imageScaleStyle, FILL]}>
-              <CardImage card={card} />
-            </Animated.View>
-          </Pressable>
-        </Link>
-      ) : (
-        <Animated.View style={[imageScaleStyle, FILL]}>
-          <CardImage card={card} />
-        </Animated.View>
-      )}
-      <CardBadges
-        owned={owned}
-        foilOwned={foilOwned}
-        wishlisted={wishlisted}
-        showOwnedBadge={quickAdd ? totalOwned > 0 : showOwnedBadge}
-        canFoil={cardCanFoil}
-      />
+      <View
+        className={`absolute inset-0 ${dimmed ? 'opacity-40' : ''}`}
+        style={dimmed && Platform.OS === 'web' ? { filter: 'grayscale(1)' } : undefined}>
+        {quickAdd ? (
+          <Link href={`/card/${card.id}`} asChild>
+            <Pressable className="absolute inset-0" onPressIn={onPressIn} onPressOut={onPressOut}>
+              <Animated.View style={[imageScaleStyle, FILL]}>
+                <CardImage card={card} />
+              </Animated.View>
+            </Pressable>
+          </Link>
+        ) : (
+          <Animated.View style={[imageScaleStyle, FILL]}>
+            <CardImage card={card} />
+          </Animated.View>
+        )}
+        <CardBadges
+          owned={owned}
+          foilOwned={foilOwned}
+          wishlisted={wishlisted}
+          showOwnedBadge={quickAdd ? totalOwned > 0 : showOwnedBadge}
+          canFoil={cardCanFoil}
+          foilMissing={foilMissing && !dimmed}
+        />
+      </View>
       {quickAdd && quickOwnedCb && quickFoilCb ? (
         <QuickAddOverlay
           owned={owned}

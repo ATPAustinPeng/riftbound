@@ -29,6 +29,7 @@ interface CardListViewProps {
   onRetry?: () => void;
   emptyMessage?: string;
   ListHeaderComponent?: ReactElement | null;
+  dimMissing?: boolean;
 }
 
 function CompactButton({
@@ -102,6 +103,7 @@ function CardListRow({
   quantityMode,
   goal,
   quickAdd,
+  dimMissing,
   onOwnedChange,
   onFoilOwnedChange,
 }: {
@@ -112,6 +114,7 @@ function CardListRow({
   quantityMode: 'owned' | 'needed';
   goal?: CollectionGoal;
   quickAdd?: boolean;
+  dimMissing?: boolean;
   onOwnedChange?: (cardId: string, next: number) => void;
   onFoilOwnedChange?: (cardId: string, next: number) => void;
 }) {
@@ -119,9 +122,18 @@ function CardListRow({
   const domains = index.domainsByCardId[card.id] ?? [];
   const showControls = quickAdd && (!!onOwnedChange || !!onFoilOwnedChange);
   const evaluation = goal ? evaluateGoal(goal, owned, foilOwned, cardCanFoil) : null;
+  const dimmed = dimMissing && owned + foilOwned === 0;
+  const foilMissing =
+    dimMissing &&
+    !dimmed &&
+    cardCanFoil &&
+    evaluation &&
+    evaluation.normalComplete &&
+    !evaluation.foilComplete;
 
   return (
-    <View className="flex-row items-center gap-2 border-b border-neutral-100 py-2.5 dark:border-neutral-900">
+    <View
+      className={`flex-row items-center gap-2 border-b border-neutral-100 py-2.5 dark:border-neutral-900 ${dimmed ? 'opacity-40' : ''}`}>
       <Link href={`/card/${card.id}`} asChild>
         <Pressable className="min-w-0 flex-1">
           <Text
@@ -154,6 +166,11 @@ function CardListRow({
       </Link>
 
       <View className="items-end gap-1">
+        {foilMissing ? (
+          <View className="rounded-full border border-dashed border-amber-400 px-1.5 py-0.5 opacity-40">
+            <Text className="text-[10px] font-bold leading-none text-amber-500">✦</Text>
+          </View>
+        ) : null}
         {quantityMode === 'owned' ? (
           <>
             <View className="flex-row items-center gap-1">
@@ -257,6 +274,7 @@ export function CardListView({
   onRetry,
   emptyMessage = 'No cards match your filters.',
   ListHeaderComponent,
+  dimMissing = false,
 }: CardListViewProps) {
   if (isLoading) {
     return (
@@ -303,6 +321,7 @@ export function CardListView({
             quantityMode={quantityMode}
             goal={goal}
             quickAdd={quickAdd}
+            dimMissing={dimMissing}
             onOwnedChange={onOwnedChange}
             onFoilOwnedChange={onFoilOwnedChange}
           />

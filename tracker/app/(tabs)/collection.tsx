@@ -28,19 +28,6 @@ export default function CollectionScreen() {
     [upsertUserCard],
   );
 
-  const ownedCards = useMemo(() => {
-    if (!cardsQuery.data || !userCardsQuery.data) return [];
-    const cardById = new Map(cardsQuery.data.cards.map((c) => [c.id, c]));
-    const result = [];
-    for (const entry of Object.values(userCardsQuery.data)) {
-      const foil = entry.quantity_owned_foil ?? 0;
-      if (entry.quantity_owned + foil <= 0) continue;
-      const card = cardById.get(entry.card_id);
-      if (card) result.push(card);
-    }
-    return result;
-  }, [cardsQuery.data, userCardsQuery.data]);
-
   const ownedByCardId = useMemo(() => {
     const map: Record<string, number> = {};
     for (const [cardId, entry] of Object.entries(userCardsQuery.data ?? {})) {
@@ -100,6 +87,8 @@ export default function CollectionScreen() {
         isLoading={isLoading}
         isError={isError}
         onRetry={onRetry}
+        showGoalSelector
+        showCollectionControls
         emptyMessage="No cards in your collection yet. Browse cards and add owned copies from the card detail screen."
       />
     );
@@ -107,7 +96,7 @@ export default function CollectionScreen() {
 
   return (
     <CardBrowser
-      cards={ownedCards}
+      cards={cardsQuery.data.cards}
       index={cardsQuery.data}
       ownedByCardId={ownedByCardId}
       foilOwnedByCardId={foilOwnedByCardId}
@@ -125,6 +114,8 @@ export default function CollectionScreen() {
       isLoading={isLoading}
       isError={isError}
       onRetry={onRetry}
+      showGoalSelector
+      showCollectionControls
       emptyMessage="No cards in your collection yet. Browse cards and add owned copies from the card detail screen."
     />
   );

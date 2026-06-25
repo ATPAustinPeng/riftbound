@@ -35,19 +35,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="needs"
-        options={{
-          title: 'Needs',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{ ios: 'checklist', android: 'checklist', web: 'checklist' }}
-              tintColor={color}
-              size={24}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="wishlist"
         options={{
           title: 'Wishlist',

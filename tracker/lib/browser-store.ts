@@ -6,16 +6,24 @@ import {
   type ViewMode,
 } from '@/lib/queries';
 
+type CollectionView = 'owned' | 'missing' | 'all';
+
 interface BrowserState {
   filters: CardFilters;
   numColumns: number;
   viewMode: ViewMode;
+  collectionView: CollectionView;
+  groupBySet: boolean;
+  hideComplete: boolean;
 }
 
 let state: BrowserState = {
   filters: defaultCardFilters,
   numColumns: 6,
   viewMode: 'grid',
+  collectionView: 'owned',
+  groupBySet: false,
+  hideComplete: false,
 };
 
 const listeners = new Set<() => void>();
@@ -50,14 +58,35 @@ export function setViewMode(viewMode: ViewMode) {
   emitChange();
 }
 
+export function setCollectionView(collectionView: CollectionView) {
+  state = { ...state, collectionView };
+  emitChange();
+}
+
+export function setGroupBySet(groupBySet: boolean) {
+  state = { ...state, groupBySet };
+  emitChange();
+}
+
+export function setHideComplete(hideComplete: boolean) {
+  state = { ...state, hideComplete };
+  emitChange();
+}
+
 export function useBrowserState() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return {
     filters: snapshot.filters,
     numColumns: snapshot.numColumns,
     viewMode: snapshot.viewMode,
+    collectionView: snapshot.collectionView,
+    groupBySet: snapshot.groupBySet,
+    hideComplete: snapshot.hideComplete,
     setFilters,
     setNumColumns,
     setViewMode,
+    setCollectionView,
+    setGroupBySet,
+    setHideComplete,
   };
 }

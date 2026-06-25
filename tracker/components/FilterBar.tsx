@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { ColumnSlider } from '@/components/ColumnSlider';
 import {
   defaultCardFilters,
+  SET_ORDER,
   type CardFilters,
   type CardsIndex,
   type ViewMode,
@@ -19,10 +20,9 @@ interface FilterBarProps {
   onViewModeChange: (mode: ViewMode) => void;
 }
 
-type FilterKey = 'setId' | 'rarityId' | 'domainId' | 'cardType';
+type FilterKey = 'rarityId' | 'domainId' | 'cardType';
 
 const FILTER_LABELS: Record<FilterKey, string> = {
-  setId: 'Set',
   rarityId: 'Rarity',
   domainId: 'Domain',
   cardType: 'Type',
@@ -53,6 +53,50 @@ function FilterChip({
   );
 }
 
+function SetTab({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} className="px-3 py-2">
+      <Text
+        className={`text-sm ${active ? 'font-bold text-neutral-900 dark:text-white' : 'font-medium text-neutral-500 dark:text-neutral-400'}`}>
+        {label}
+      </Text>
+      {active ? <View className="mt-1 h-0.5 rounded-full bg-blue-600" /> : null}
+    </Pressable>
+  );
+}
+
+function SetTabs({
+  sets,
+  activeSetId,
+  onSelect,
+}: {
+  sets: CardsIndex['sets'];
+  activeSetId: string | null;
+  onSelect: (setId: string | null) => void;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <SetTab label="All" active={activeSetId === null} onPress={() => onSelect(null)} />
+      {[...sets].sort((a, b) => (SET_ORDER[a.id] ?? 999) - (SET_ORDER[b.id] ?? 999)).map((set) => (
+        <SetTab
+          key={set.id}
+          label={set.label}
+          active={activeSetId === set.id}
+          onPress={() => onSelect(set.id)}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
 export function FilterBar({
   filters,
   onChange,
@@ -71,8 +115,6 @@ export function FilterBar({
 
   function getOptions(key: FilterKey): Array<{ id: string; label: string } | string> {
     switch (key) {
-      case 'setId':
-        return index.sets.map((s) => ({ id: s.id, label: s.label }));
       case 'rarityId':
         return index.rarities;
       case 'domainId':
@@ -93,12 +135,18 @@ export function FilterBar({
     return match?.label ?? value;
   }
 
-  const activeCount = [filters.setId, filters.rarityId, filters.domainId, filters.cardType].filter(
+  const activeCount = [filters.rarityId, filters.domainId, filters.cardType].filter(
     Boolean,
   ).length;
 
   return (
     <View className="gap-3 border-b border-neutral-200 bg-white px-4 pb-3 pt-2 dark:border-neutral-800 dark:bg-neutral-950">
+      <SetTabs
+        sets={index.sets}
+        activeSetId={filters.setId}
+        onSelect={(setId) => onChange({ ...filters, setId })}
+      />
+
       <TextInput
         value={filters.search}
         onChangeText={(search) => onChange({ ...filters, search })}
@@ -157,9 +205,9 @@ export function FilterBar({
         <FilterChip
           label={activeCount > 0 ? `Filters (${activeCount})` : 'Filters'}
           active={expanded !== null || activeCount > 0}
-          onPress={() => setExpanded(expanded ? null : 'setId')}
+          onPress={() => setExpanded(expanded ? null : 'rarityId')}
         />
-        {(['setId', 'rarityId', 'domainId', 'cardType'] as FilterKey[]).map((key) => {
+        {(['rarityId', 'domainId', 'cardType'] as FilterKey[]).map((key) => {
           const activeLabel = getActiveLabel(key);
           if (!activeLabel) return null;
           return (
@@ -180,6 +228,7 @@ export function FilterBar({
                 ...defaultCardFilters,
                 search: filters.search,
                 sortBy: filters.sortBy,
+                setId: filters.setId,
               })
             }
           />
@@ -189,7 +238,7 @@ export function FilterBar({
       {expanded ? (
         <View className="gap-2">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-            {(['setId', 'rarityId', 'domainId', 'cardType'] as FilterKey[]).map((key) => (
+            {(['rarityId', 'domainId', 'cardType'] as FilterKey[]).map((key) => (
               <FilterChip
                 key={key}
                 label={FILTER_LABELS[key]}
