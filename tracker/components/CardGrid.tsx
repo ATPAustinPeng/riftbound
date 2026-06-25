@@ -1,5 +1,5 @@
 import { FlashList } from '@shopify/flash-list';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -63,7 +63,7 @@ function SetSectionHeader({
   pct: number;
 }) {
   return (
-    <View className="gap-1 pb-2 pt-4">
+    <View className="gap-1 border-b border-neutral-100 bg-white pb-2 pt-4 dark:border-neutral-900 dark:bg-neutral-950">
       <View className="flex-row items-center justify-between">
         <Text className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
           {setLabel}
@@ -230,46 +230,60 @@ export function CardGrid({
   }
 
   if (groupBySet) {
+    const content: ReactNode[] = [];
+    const stickyHeaderIndices: number[] = [];
+
+    if (ListHeaderComponent) {
+      content.push(<View key="__list-header">{ListHeaderComponent}</View>);
+    }
+
+    if (gridItems.length === 0) {
+      content.push(
+        <View key="__empty" className="items-center py-12">
+          <Text className="text-center text-neutral-500">{emptyMessage}</Text>
+        </View>,
+      );
+    }
+
+    for (const item of gridItems) {
+      if (item.type === 'header') {
+        stickyHeaderIndices.push(content.length);
+        content.push(
+          <SetSectionHeader
+            key={`header-${item.setId}`}
+            setLabel={item.setLabel}
+            owned={item.owned}
+            total={item.total}
+            pct={item.pct}
+          />,
+        );
+      } else {
+        content.push(
+          <View
+            key={`row-${item.setId}-${item.rowIndex}`}
+            className="flex-row"
+            style={{ marginBottom: GRID_GAP }}>
+            {item.cards.map((card, index) => (
+              <View
+                key={card._listKey ?? card.id}
+                style={{
+                  width: tileWidth,
+                  marginRight: index === item.cards.length - 1 ? 0 : GRID_GAP,
+                }}>
+                {renderTile(card)}
+              </View>
+            ))}
+          </View>,
+        );
+      }
+    }
+
     return (
       <View className="flex-1 bg-white dark:bg-neutral-950">
         <ScrollView
+          stickyHeaderIndices={stickyHeaderIndices}
           contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}>
-          {ListHeaderComponent ?? null}
-          {gridItems.length === 0 ? (
-            <View className="items-center py-12">
-              <Text className="text-center text-neutral-500">{emptyMessage}</Text>
-            </View>
-          ) : null}
-          {gridItems.map((item) => {
-            if (item.type === 'header') {
-              return (
-                <SetSectionHeader
-                  key={`header-${item.setId}`}
-                  setLabel={item.setLabel}
-                  owned={item.owned}
-                  total={item.total}
-                  pct={item.pct}
-                />
-              );
-            }
-            return (
-              <View
-                key={`row-${item.setId}-${item.rowIndex}`}
-                className="flex-row"
-                style={{ marginBottom: GRID_GAP }}>
-                {item.cards.map((card, index) => (
-                  <View
-                    key={card._listKey ?? card.id}
-                    style={{
-                      width: tileWidth,
-                      marginRight: index === item.cards.length - 1 ? 0 : GRID_GAP,
-                    }}>
-                    {renderTile(card)}
-                  </View>
-                ))}
-              </View>
-            );
-          })}
+          {content}
         </ScrollView>
       </View>
     );
