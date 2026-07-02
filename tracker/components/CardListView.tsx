@@ -121,7 +121,9 @@ function CardListRow({
   const cardCanFoil = canBeFoil(card);
   const domains = index.domainsByCardId[card.id] ?? [];
   const showControls = quickAdd && (!!onOwnedChange || !!onFoilOwnedChange);
-  const evaluation = goal ? evaluateGoal(goal, owned, foilOwned, cardCanFoil) : null;
+  const evaluation = goal
+    ? evaluateGoal(goal, owned, foilOwned, cardCanFoil, card.card_type)
+    : null;
   const dimmed = dimMissing && owned + foilOwned === 0;
   const foilMissing =
     dimMissing &&
@@ -217,7 +219,7 @@ function CardListRow({
               </View>
             ) : null}
           </>
-        ) : evaluation?.combined ? (
+        ) : evaluation?.untracked ? null : evaluation?.combined ? (
           <ProgressRow
             label=""
             owned={owned + foilOwned}

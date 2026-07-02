@@ -90,7 +90,7 @@ export function CardBrowser({
     return filteredBySearch.filter((card) => {
       const owned = ownedByCardId[card.id] ?? 0;
       const foil = foilOwnedByCardId[card.id] ?? 0;
-      const evaluation = evaluateGoal(goal, owned, foil, canBeFoil(card));
+      const evaluation = evaluateGoal(goal, owned, foil, canBeFoil(card), card.card_type);
 
       if (collectionView === 'owned') {
         return owned + foil > 0;

@@ -161,6 +161,7 @@ export default function CardDetailScreen() {
             owned={owned}
             foil={foilOwned}
             canFoil={cardCanFoil}
+            cardType={card.card_type}
           />
           {cardCanFoil && combinedOwned > 0 ? (
             <Text className="text-xs text-neutral-500 dark:text-neutral-400">

@@ -7,6 +7,7 @@ interface PlaysetProgressProps {
   owned: number;
   foil: number;
   canFoil: boolean;
+  cardType?: string | null;
   compact?: boolean;
 }
 
@@ -63,9 +64,23 @@ export function PlaysetProgress({
   owned,
   foil,
   canFoil,
+  cardType,
   compact = false,
 }: PlaysetProgressProps) {
-  const evaluation = evaluateGoal(goal, owned, foil, canFoil);
+  const evaluation = evaluateGoal(goal, owned, foil, canFoil, cardType);
+
+  if (evaluation.untracked) {
+    return (
+      <Text
+        className={
+          compact
+            ? 'text-xs text-neutral-500 dark:text-neutral-400'
+            : 'text-sm text-neutral-500 dark:text-neutral-400'
+        }>
+        No playset limit
+      </Text>
+    );
+  }
 
   if (evaluation.combined) {
     const total = owned + foil;

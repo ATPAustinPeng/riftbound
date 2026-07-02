@@ -115,10 +115,19 @@ Tap any card to open its detail screen: full image, stats, owned/for-sale steppe
 | Goal | Complete when |
 |------|----------------|
 | **1 each** (`single_separate`) | 1 normal + 1 foil (foil only for commons/uncommons) |
-| **3 each** (`playset_separate`) | 3 normal + 3 foil (default; classic playset tracking) |
-| **Playset (normal only)** (`playset_normal`) | 3 normal copies; foil ignored |
+| **3 each** (`playset_separate`) | Playset-sized normal + foil (see playset sizes below; default) |
+| **Playset (normal only)** (`playset_normal`) | Playset-sized normal copies; foil ignored |
 | **1 total** (`single_combined`) | 1 copy, normal + foil combined |
-| **3 total** (`playset_combined`) | 3 copies, normal + foil combined |
+| **3 total** (`playset_combined`) | Playset-sized copies, normal + foil combined |
+
+**Playset sizes** (used by the three playset goal modes above; `single_*` modes always target 1):
+
+| Card type | Playset target |
+|-----------|----------------|
+| Battlefield, Legend | 1 |
+| Rune | 12 |
+| Token | No limit (untracked — never missing, excluded from complete count) |
+| Unit, Spell, Gear, etc. | 3 |
 
 The goal is stored on your Supabase `profiles` row and drives the Needs tab, list progress bars, card detail progress, and the Collection stats "complete" count. Foil requirements only apply to commons and uncommons in separate mode; higher rarities ignore the foil track there.
 
