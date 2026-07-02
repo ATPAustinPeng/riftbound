@@ -17,6 +17,7 @@ Cross-platform (iOS + web) collection tracker for Riftbound TCG. Browse ~952 ref
    - `supabase/migrations/0002_stats.sql` — collection stats RPCs and set totals view
    - `supabase/migrations/0003_foil.sql` — foil owned column and combined playset stats
    - `supabase/migrations/0004_collection_goal.sql` — per-user collection goal on `profiles`
+   - `supabase/migrations/0005_games.sql` — match/game tracking tables, scoring view, RLS, and claim RPC
 3. Enable **Email** auth under **Authentication → Providers** (enabled by default).
 4. Copy your project credentials from **Project Settings → API**:
    - **Project URL**
@@ -100,6 +101,7 @@ Press `i` for iOS, `w` for web, or scan the QR code.
 | **Collection** | Owned cards grouped by set with quantity steppers, goal-aware stats, and a quick goal selector |
 | **Needs** | Cards you still need for your collection goal, with list progress toward that goal |
 | **Wishlist** | Want-list with one-tap remove or mark-owned |
+| **Games** | Match history, live 1v1 score recorder, timeline replay, and share/claim links |
 | **Profile** | Collection goal picker (synced across devices), display name, and sign out |
 
 **Sorting:** Browse cards can be sorted three ways:
@@ -158,6 +160,12 @@ cd tracker && npx tsc --noEmit
   grant select, insert, update, delete on public.profiles   to authenticated;
   grant select, insert, update, delete on public.user_cards to authenticated;
   grant select, insert, update, delete on public.wishlist   to authenticated;
+  grant select, insert, update, delete on public.matches          to authenticated;
+  grant select, insert, update, delete on public.match_players    to authenticated;
+  grant select, insert, update, delete on public.games            to authenticated;
+  grant select, insert, update, delete on public.game_battlefields to authenticated;
+  grant select, insert, update, delete on public.game_events       to authenticated;
+  grant select on public.scoring_events                              to authenticated;
   grant all on public.sets         to service_role;
   grant all on public.cards        to service_role;
   grant all on public.card_domains to service_role;
@@ -165,11 +173,18 @@ cd tracker && npx tsc --noEmit
   grant all on public.profiles     to service_role;
   grant all on public.user_cards   to service_role;
   grant all on public.wishlist     to service_role;
+  grant all on public.matches          to service_role;
+  grant all on public.match_players    to service_role;
+  grant all on public.games            to service_role;
+  grant all on public.game_battlefields to service_role;
+  grant all on public.game_events      to service_role;
+  grant all on public.scoring_events   to service_role;
   ```
+- **Game tracker errors** — Ensure `0005_games.sql` was applied (tables, RLS policies, grants, and `claim_match_player` RPC). Re-run the grant block above if you see `permission denied` on match tables.
 - **Auth errors** — Check `.env.local` values match your Supabase project. Use the **anon** key (not service_role) for `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - **Stats show zeros** — Ensure `0002_stats.sql` was applied; the app falls back to client-side computation if RPCs are missing. After adding foil tracking, also run `0003_foil.sql`. Run `0004_collection_goal.sql` so the Profile goal picker can persist to the database.
 - **"Failed to fetch profile"** — Usually the `profiles` grant is missing; see the permission denied fix above.
-- **`npm install` hitting Artifactory / `403 Forbidden`** — Your machine's `~/.npmrc` or `NPM_CONFIG_REGISTRY` env var is pointing to a corporate registry. The `tracker/.npmrc` in this repo sets `registry=https://registry.npmjs.org` to override it. If the error persists, the env var is taking precedence; run: `NPM_CONFIG_REGISTRY=https://registry.npmjs.org npm install`
+- **`npm install` on a corporate machine** — The project `.npmrc` intentionally does not pin a registry, so your machine's `~/.npmrc` registry is used. Set registry=https://registry.npmjs.org` to set it to the default npm registry. If that doesn't work, try setting the env var `NPM_CONFIG_REGISTRY=https://registry.npmjs.org npm install`
 
 ## Verifying data is saved to the database
 

@@ -20,12 +20,13 @@ interface FilterBarProps {
   onViewModeChange: (mode: ViewMode) => void;
 }
 
-type FilterKey = 'rarityId' | 'domainId' | 'cardType';
+type FilterKey = 'rarityId' | 'domainId' | 'cardType' | 'superType';
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   rarityId: 'Rarity',
   domainId: 'Domain',
   cardType: 'Type',
+  superType: 'Super type',
 };
 
 function FilterChip({
@@ -121,6 +122,8 @@ export function FilterBar({
         return index.domains;
       case 'cardType':
         return index.cardTypes;
+      case 'superType':
+        return index.superTypes;
     }
   }
 
@@ -128,14 +131,14 @@ export function FilterBar({
     const value = filters[key];
     if (!value) return null;
     const options = getOptions(key);
-    if (key === 'cardType') {
+    if (key === 'cardType' || key === 'superType') {
       return value;
     }
     const match = (options as Array<{ id: string; label: string }>).find((o) => o.id === value);
     return match?.label ?? value;
   }
 
-  const activeCount = [filters.rarityId, filters.domainId, filters.cardType].filter(
+  const activeCount = [filters.rarityId, filters.domainId, filters.cardType, filters.superType].filter(
     Boolean,
   ).length;
 
@@ -207,7 +210,7 @@ export function FilterBar({
           active={expanded !== null || activeCount > 0}
           onPress={() => setExpanded(expanded ? null : 'rarityId')}
         />
-        {(['rarityId', 'domainId', 'cardType'] as FilterKey[]).map((key) => {
+        {(['rarityId', 'domainId', 'cardType', 'superType'] as FilterKey[]).map((key) => {
           const activeLabel = getActiveLabel(key);
           if (!activeLabel) return null;
           return (
@@ -238,7 +241,7 @@ export function FilterBar({
       {expanded ? (
         <View className="gap-2">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-            {(['rarityId', 'domainId', 'cardType'] as FilterKey[]).map((key) => (
+            {(['rarityId', 'domainId', 'cardType', 'superType'] as FilterKey[]).map((key) => (
               <FilterChip
                 key={key}
                 label={FILTER_LABELS[key]}
@@ -249,13 +252,13 @@ export function FilterBar({
           </ScrollView>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-            {expanded === 'cardType'
-              ? index.cardTypes.map((type) => (
+            {expanded === 'cardType' || expanded === 'superType'
+              ? (getOptions(expanded) as string[]).map((type) => (
                   <FilterChip
                     key={type}
                     label={type}
-                    active={filters.cardType === type}
-                    onPress={() => toggleFilter('cardType', type)}
+                    active={filters[expanded] === type}
+                    onPress={() => toggleFilter(expanded, type)}
                   />
                 ))
               : (getOptions(expanded) as Array<{ id: string; label: string }>).map((option) => (

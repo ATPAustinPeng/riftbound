@@ -143,6 +143,7 @@ export interface CardsIndex {
   rarities: Array<{ id: string; label: string }>;
   domains: Array<{ id: string; label: string }>;
   cardTypes: string[];
+  superTypes: string[];
 }
 
 export interface CardFilters {
@@ -151,6 +152,7 @@ export interface CardFilters {
   rarityId: string | null;
   domainId: string | null;
   cardType: string | null;
+  superType: string | null;
   sortBy: 'set' | 'color' | 'name';
 }
 
@@ -191,6 +193,7 @@ export const defaultCardFilters: CardFilters = {
   rarityId: null,
   domainId: null,
   cardType: null,
+  superType: null,
   sortBy: 'set',
 };
 
@@ -257,12 +260,14 @@ async function fetchCardsIndex(): Promise<CardsIndex> {
   const rarityMap = new Map<string, string>();
   const domainMap = new Map<string, string>();
   const cardTypeSet = new Set<string>();
+  const superTypeSet = new Set<string>();
 
   for (const card of cards) {
     if (card.rarity_id && card.rarity_label) {
       rarityMap.set(card.rarity_id, card.rarity_label);
     }
     if (card.card_type) cardTypeSet.add(card.card_type);
+    if (card.super_type) superTypeSet.add(card.super_type);
   }
 
   for (const domain of domains) {
@@ -280,6 +285,7 @@ async function fetchCardsIndex(): Promise<CardsIndex> {
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const cardTypes = [...cardTypeSet].sort();
+  const superTypes = [...superTypeSet].sort();
 
   return {
     cards,
@@ -289,6 +295,7 @@ async function fetchCardsIndex(): Promise<CardsIndex> {
     rarities,
     domains: domainOptions,
     cardTypes,
+    superTypes,
   };
 }
 
@@ -550,6 +557,7 @@ export function filterCards(
     if (filters.setId && card.set_id !== filters.setId) return false;
     if (filters.rarityId && card.rarity_id !== filters.rarityId) return false;
     if (filters.cardType && card.card_type !== filters.cardType) return false;
+    if (filters.superType && card.super_type !== filters.superType) return false;
     if (filters.domainId) {
       const domains = index.domainsByCardId[card.id] ?? [];
       if (!domains.some((d) => d.domain_id === filters.domainId)) return false;

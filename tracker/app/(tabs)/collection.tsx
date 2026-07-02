@@ -61,6 +61,7 @@ export default function CollectionScreen() {
     rarities: [],
     domains: [],
     cardTypes: [],
+    superTypes: [],
   };
 
   const isLoading = cardsQuery.isLoading || userCardsQuery.isLoading;

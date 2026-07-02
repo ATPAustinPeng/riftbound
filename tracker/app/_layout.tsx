@@ -80,6 +80,9 @@ function RootNavigator() {
         name="card/[id]"
         options={{ title: 'Card Detail', presentation: 'transparentModal', headerShown: true }}
       />
+      <Stack.Screen name="match/new" options={{ title: 'New Match', headerShown: true }} />
+      <Stack.Screen name="match/[id]/index" options={{ title: 'Match', headerShown: true }} />
+      <Stack.Screen name="match/[id]/record" options={{ title: 'Record', headerShown: true }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

@@ -100,6 +100,93 @@ export interface WishlistItemWithCard extends WishlistItem {
   card: Card;
 }
 
+/** Match / game tracking (supabase/migrations/0005_games.sql). */
+
+export type MatchFormat = '1v1';
+export type MatchType = 'bo1' | 'bo3';
+export type ScoreSource = 'battlefield' | 'effect';
+
+export interface Match {
+  id: string;
+  owner_id: string;
+  format: MatchFormat;
+  match_type: MatchType;
+  point_target: number;
+  played_at: string;
+  notes: string | null;
+  share_token: string;
+  created_at: string;
+}
+
+export interface MatchPlayer {
+  id: string;
+  match_id: string;
+  seat: number;
+  team_no: number | null;
+  display_name: string;
+  user_id: string | null;
+  legend_card_id: string;
+  domains: string[];
+  deck_name: string | null;
+  claim_token: string | null;
+  claimed_at: string | null;
+}
+
+export interface Game {
+  id: string;
+  match_id: string;
+  game_no: number;
+  first_player_seat: number;
+  winner_seat: number | null;
+  point_target: number | null;
+}
+
+export interface GameBattlefield {
+  game_id: string;
+  position: number;
+  card_id: string;
+  contributed_by_seat: number | null;
+}
+
+export interface GameEvent {
+  id: string;
+  game_id: string;
+  seq: number;
+  turn_no: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ScoreEventPayload {
+  scorer_seat: number;
+  battlefield_position?: number;
+  points: number;
+  source: ScoreSource;
+}
+
+export interface MatchWithPlayers extends Match {
+  players: MatchPlayer[];
+  /** Present on list queries for series score display. */
+  games?: Pick<Game, 'id' | 'game_no' | 'winner_seat' | 'match_id'>[];
+}
+
+export interface GameWithDetails extends Game {
+  battlefields: GameBattlefield[];
+  events: GameEvent[];
+}
+
+export interface MatchFull extends MatchWithPlayers {
+  games: GameWithDetails[];
+}
+
+export interface DerivedScore {
+  bySeat: Record<number, number>;
+  byBattlefield: Record<number, Record<number, number>>;
+  firstScorerSeat: number | null;
+  totalEvents: number;
+}
+
 /** Aggregate stats (future collection_stats view / queries). */
 export interface CollectionStats {
   unique_owned: number;
