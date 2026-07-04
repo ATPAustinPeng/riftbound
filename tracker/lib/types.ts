@@ -4,6 +4,7 @@ export type CollectionGoal =
   | 'single_separate'
   | 'playset_separate'
   | 'playset_normal'
+  | 'playset_foil'
   | 'single_combined'
   | 'playset_combined';
 
@@ -14,6 +15,7 @@ export function isValidCollectionGoal(value: unknown): value is CollectionGoal {
     value === 'single_separate' ||
     value === 'playset_separate' ||
     value === 'playset_normal' ||
+    value === 'playset_foil' ||
     value === 'single_combined' ||
     value === 'playset_combined'
   );

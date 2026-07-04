@@ -38,17 +38,24 @@ export const COLLECTION_GOALS: Array<{
   },
   {
     id: 'playset_separate',
-    shortLabel: '3 each',
+    shortLabel: 'Playset',
     description:
       'Playset-sized normal and foil copies (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked; foil only for commons/uncommons).',
     statsSubtitle: '3+ each',
   },
   {
     id: 'playset_normal',
-    shortLabel: 'Playset (normal only)',
+    shortLabel: 'Playset (no foil)',
     description:
       'Playset-sized normal copies (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked); foil not required.',
     statsSubtitle: '3+ normal',
+  },
+  {
+    id: 'playset_foil',
+    shortLabel: 'Playset (foil)',
+    description:
+      'Playset-sized foil copies for commons/uncommons (3 default; Battlefield/Legend fall back to 1 normal, Rune 12 normal; Tokens untracked; non-foil rarities use normal copies).',
+    statsSubtitle: '3+ foil',
   },
   {
     id: 'single_combined',
@@ -104,6 +111,29 @@ export function evaluateGoal(
       foilComplete: true,
       complete: true,
       untracked: true,
+    };
+  }
+
+  if (goal === 'playset_foil') {
+    if (!canFoil) {
+      const normalComplete = owned >= playsetTarget;
+      return {
+        target: playsetTarget,
+        combined: false,
+        normalComplete,
+        foilComplete: true,
+        complete: normalComplete,
+        untracked: false,
+      };
+    }
+    const foilComplete = foil >= playsetTarget;
+    return {
+      target: playsetTarget,
+      combined: false,
+      normalComplete: true,
+      foilComplete,
+      complete: foilComplete,
+      untracked: false,
     };
   }
 
@@ -636,7 +666,8 @@ export function getOwnedFoilQuantity(
   return map?.[cardId]?.quantity_owned_foil ?? 0;
 }
 
-export function canBeFoil(card: Pick<Card, 'rarity_id'>): boolean {
+export function canBeFoil(card: Pick<Card, 'rarity_id' | 'card_type'>): boolean {
+  if (card.card_type === 'Rune' || card.card_type === 'Token') return false;
   return card.rarity_id === 'common' || card.rarity_id === 'uncommon';
 }
 

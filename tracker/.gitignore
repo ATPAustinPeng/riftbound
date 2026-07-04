@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# machine-specific npm registry/auth config (differs work vs personal)
+.npmrc
+
 # typescript
 *.tsbuildinfo
 

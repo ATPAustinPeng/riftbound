@@ -1,12 +1,18 @@
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Switch, Text, View } from 'react-native';
 
 import { CardGrid } from '@/components/CardGrid';
 import { CardListView } from '@/components/CardListView';
 import { CollectionGoalSelector } from '@/components/CollectionGoalSelector';
+import { ExportMissingModal } from '@/components/ExportMissingModal';
 import { FilterBar } from '@/components/FilterBar';
 import { useBrowserState } from '@/lib/browser-store';
+import {
+  buildMissingRows,
+  missingCsvFilename,
+  rowsToCsv,
+} from '@/lib/export-missing';
 import {
   canBeFoil,
   evaluateGoal,
@@ -78,6 +84,7 @@ export function CardBrowser({
     setHideComplete,
   } = useBrowserState();
   const { goal } = useCollectionGoal();
+  const [exportModalVisible, setExportModalVisible] = useState(false);
 
   const filteredBySearch = useMemo(
     () => filterCards(cards, filters, index),
@@ -112,6 +119,17 @@ export function CardBrowser({
     ownedByCardId,
     foilOwnedByCardId,
   ]);
+
+  const missingExport = useMemo(() => {
+    const rows = buildMissingRows(
+      filteredBySearch,
+      index,
+      ownedByCardId,
+      foilOwnedByCardId,
+      goal,
+    );
+    return { rows, csv: rowsToCsv(rows), count: rows.length };
+  }, [filteredBySearch, index, ownedByCardId, foilOwnedByCardId, goal]);
 
   const effectiveListQuantityMode = showCollectionControls
     ? collectionView === 'missing'
@@ -173,7 +191,31 @@ export function CardBrowser({
             </Text>
           </Pressable>
         ) : null}
+        <Pressable
+          onPress={() => setExportModalVisible(true)}
+          disabled={missingExport.count === 0}
+          className={`rounded-full border px-3 py-1.5 ${
+            missingExport.count === 0
+              ? 'border-neutral-200 bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900'
+              : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+          }`}>
+          <Text
+            className={`text-xs font-medium ${
+              missingExport.count === 0
+                ? 'text-neutral-400 dark:text-neutral-600'
+                : 'text-neutral-700 dark:text-neutral-300'
+            }`}>
+            Export missing
+          </Text>
+        </Pressable>
       </View>
+      <ExportMissingModal
+        visible={exportModalVisible}
+        onClose={() => setExportModalVisible(false)}
+        csv={missingExport.csv}
+        count={missingExport.count}
+        filename={missingCsvFilename(goal)}
+      />
     </View>
   ) : null;
 
