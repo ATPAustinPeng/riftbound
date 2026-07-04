@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, Text, View } from 'react-native';
 
 import { COLLECTION_GOALS, useCollectionGoal, type CollectionGoal } from '@/lib/queries';
@@ -11,6 +12,7 @@ export function CollectionGoalSelector({ compact = false }: CollectionGoalSelect
 
   function handleSelect(next: CollectionGoal) {
     if (next === goal) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     void setGoal(next).catch((error) => {
       console.warn('Failed to update collection goal:', error);
     });
@@ -28,8 +30,8 @@ export function CollectionGoalSelector({ compact = false }: CollectionGoalSelect
                 onPress={() => handleSelect(option.id)}
                 className={`rounded-full border px-3 py-1.5 ${
                   selected
-                    ? 'border-blue-600 bg-blue-600'
-                    : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+                    ? 'border-blue-600 bg-blue-600 active:bg-blue-700'
+                    : 'border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800'
                 }`}>
                 <Text
                   className={`text-xs font-semibold ${
@@ -55,8 +57,8 @@ export function CollectionGoalSelector({ compact = false }: CollectionGoalSelect
             onPress={() => handleSelect(option.id)}
             className={`rounded-xl border p-3 ${
               selected
-                ? 'border-blue-600 bg-blue-50 dark:border-blue-500 dark:bg-blue-950'
-                : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900'
+                ? 'border-blue-600 bg-blue-50 active:bg-blue-100 dark:border-blue-500 dark:bg-blue-950 dark:active:bg-blue-900'
+                : 'border-neutral-200 bg-neutral-50 active:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:active:bg-neutral-800'
             }`}>
             <Text
               className={`text-sm font-semibold ${

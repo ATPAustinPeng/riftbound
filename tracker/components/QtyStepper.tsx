@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, Text, View } from 'react-native';
 
 interface QtyStepperProps {
@@ -22,6 +23,11 @@ export function QtyStepper({
   const canDecrement = !disabled && value > min;
   const canIncrement = !disabled && (max === undefined || value < max);
 
+  function step(next: number) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onChange(next);
+  }
+
   return (
     <View className={compact ? 'gap-1' : 'gap-2'}>
       <Text
@@ -35,8 +41,8 @@ export function QtyStepper({
       <View className="flex-row items-center gap-2">
         <Pressable
           disabled={!canDecrement}
-          onPress={() => onChange(value - 1)}
-          className={`h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900 ${!canDecrement ? 'opacity-40' : ''}`}>
+          onPress={() => step(value - 1)}
+          className={`h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800 ${!canDecrement ? 'opacity-40' : ''}`}>
           <Text className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">−</Text>
         </Pressable>
         <Text
@@ -49,8 +55,8 @@ export function QtyStepper({
         </Text>
         <Pressable
           disabled={!canIncrement}
-          onPress={() => onChange(value + 1)}
-          className={`h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900 ${!canIncrement ? 'opacity-40' : ''}`}>
+          onPress={() => step(value + 1)}
+          className={`h-8 w-8 items-center justify-center rounded-md border border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800 ${!canIncrement ? 'opacity-40' : ''}`}>
           <Text className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">+</Text>
         </Pressable>
       </View>

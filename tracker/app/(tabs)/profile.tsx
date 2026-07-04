@@ -1,18 +1,40 @@
+import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 
 import { useAuth } from '@/lib/auth-context';
 
 import { CollectionGoalSelector } from '@/components/CollectionGoalSelector';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
 
 export default function ProfileScreen() {
   const { user, profile, signOut } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const displayName =
     profile?.display_name ??
     (user?.user_metadata?.display_name as string | undefined) ??
     'Collector';
+
+  const userId = user?.id ?? '';
+  const truncatedId = userId ? `${userId.slice(0, 8)}…${userId.slice(-4)}` : '—';
+
+  async function handleCopyId() {
+    if (!userId) return;
+    await Clipboard.setStringAsync(userId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function confirmSignOut() {
+    Alert.alert('Sign out?', 'You can sign back in anytime.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => void handleSignOut() },
+    ]);
+  }
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -27,33 +49,47 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white px-6 pt-8 dark:bg-neutral-950">
-      <Text className="mb-1 text-sm uppercase tracking-wide text-neutral-500">Signed in as</Text>
-      <Text className="mb-1 text-2xl font-bold text-neutral-900 dark:text-white">{displayName}</Text>
-      <Text className="mb-8 text-base text-neutral-600 dark:text-neutral-400">{user?.email ?? '—'}</Text>
+    <View className="flex-1 bg-background px-6 pt-8">
+      <Text variant="small" className="mb-1 uppercase tracking-wide text-muted-foreground">
+        Signed in as
+      </Text>
+      <Text variant="h2" className="mb-1 border-0 p-0 text-left text-2xl">
+        {displayName}
+      </Text>
+      <Text variant="muted" className="mb-8 text-base">
+        {user?.email ?? '—'}
+      </Text>
 
-      <View className="mb-8 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <Text className="mb-3 text-sm font-medium text-neutral-500">Collection goal</Text>
-        <CollectionGoalSelector />
-      </View>
+      <Card className="mb-4 py-4">
+        <CardHeader className="px-4 pb-0">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Collection goal
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pt-3">
+          <CollectionGoalSelector />
+        </CardContent>
+      </Card>
 
-      <View className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <Text className="mb-1 text-sm font-medium text-neutral-500">Account</Text>
-        <Text className="text-base text-neutral-800 dark:text-neutral-200">
-          User ID: {user?.id ?? '—'}
-        </Text>
-      </View>
+      <Card className="py-4">
+        <CardHeader className="px-4 pb-0">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Account</CardTitle>
+        </CardHeader>
+        <CardContent className="flex-row items-center justify-between px-4 pt-3">
+          <Text className="text-base text-foreground">{truncatedId}</Text>
+          <Pressable onPress={() => void handleCopyId()} className="active:opacity-60">
+            <Text className="text-sm font-medium text-primary">{copied ? 'Copied' : 'Copy'}</Text>
+          </Pressable>
+        </CardContent>
+      </Card>
 
-      <Pressable
+      <Button
         disabled={isSigningOut}
-        onPress={handleSignOut}
-        className="mt-8 items-center rounded-lg bg-red-600 py-3 disabled:opacity-60">
-        {isSigningOut ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text className="text-base font-semibold text-white">Sign out</Text>
-        )}
-      </Pressable>
+        onPress={confirmSignOut}
+        variant="destructive"
+        className="mt-8">
+        {isSigningOut ? <ActivityIndicator color="#fff" /> : <Text>Sign out</Text>}
+      </Button>
     </View>
   );
 }

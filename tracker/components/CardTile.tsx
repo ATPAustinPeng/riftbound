@@ -1,4 +1,5 @@
 import { Link } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
 import Animated, {
@@ -81,6 +82,7 @@ function CountPill({
       const clamped = Math.max(0, next);
       setDisplay(clamped);
       onChange(clamped);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
     [onChange],
   );

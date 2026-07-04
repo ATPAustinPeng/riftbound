@@ -39,6 +39,8 @@ interface CardBrowserProps {
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
   showGoalSelector?: boolean;
   showCollectionControls?: boolean;
 }
@@ -66,6 +68,8 @@ export function CardBrowser({
   isLoading,
   isError,
   onRetry,
+  onRefresh,
+  isRefreshing,
   showGoalSelector = false,
   showCollectionControls = false,
 }: CardBrowserProps) {
@@ -148,7 +152,7 @@ export function CardBrowser({
           <Pressable
             key={option.id}
             onPress={() => setCollectionView(option.id)}
-            className={`flex-1 items-center py-2 ${
+            className={`flex-1 items-center py-2 active:opacity-70 ${
               collectionView === option.id ? 'bg-white dark:bg-neutral-800' : ''
             }`}>
             <Text
@@ -180,8 +184,8 @@ export function CardBrowser({
             onPress={() => setGroupBySet(!groupBySet)}
             className={`rounded-full border px-3 py-1.5 ${
               groupBySet
-                ? 'border-blue-600 bg-blue-600'
-                : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+                ? 'border-blue-600 bg-blue-600 active:bg-blue-700'
+                : 'border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800'
             }`}>
             <Text
               className={`text-xs font-medium ${
@@ -197,7 +201,7 @@ export function CardBrowser({
           className={`rounded-full border px-3 py-1.5 ${
             missingExport.count === 0
               ? 'border-neutral-200 bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900'
-              : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+              : 'border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800'
           }`}>
           <Text
             className={`text-xs font-medium ${
@@ -255,6 +259,8 @@ export function CardBrowser({
         isLoading={isLoading}
         isError={isError}
         onRetry={onRetry}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
         emptyMessage={emptyMessage}
         ListHeaderComponent={header}
       />
@@ -280,6 +286,8 @@ export function CardBrowser({
       isLoading={isLoading}
       isError={isError}
       onRetry={onRetry}
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
       ListHeaderComponent={header}
       emptyMessage={emptyMessage}
     />

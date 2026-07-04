@@ -1,12 +1,15 @@
 import '../global.css';
 
+import { PortalHost } from '@rn-primitives/portal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { NAV_THEME } from '@/lib/theme';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -22,18 +25,23 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  const colorScheme = useColorScheme();
+
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AuthGate>
-          <RootNavigator />
-        </AuthGate>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider value={NAV_THEME[colorScheme]}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AuthGate>
+            <RootNavigator />
+          </AuthGate>
+        </AuthProvider>
+      </QueryClientProvider>
+      <PortalHost />
+    </ThemeProvider>
   );
 }
 

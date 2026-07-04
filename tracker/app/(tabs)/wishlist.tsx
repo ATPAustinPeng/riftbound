@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
-import { useMemo } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Image, Pressable, RefreshControl, View } from 'react-native';
 
 import {
   buildWishlistWithCards,
@@ -10,55 +10,92 @@ import {
   useWishlistMap,
 } from '@/lib/queries';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/text';
+
+function WishlistRowSkeleton() {
+  return (
+    <View className="mb-3 flex-row gap-3 rounded-xl border border-border bg-card p-3">
+      <Skeleton className="h-24 w-[68px]" />
+      <View className="flex-1 gap-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-1/3" />
+        <View className="flex-row gap-2">
+          <Skeleton className="h-6 w-24 rounded-md" />
+          <Skeleton className="h-6 w-16 rounded-md" />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function WishlistScreen() {
   const cardsQuery = useCardsIndex();
   const wishlistQuery = useWishlistMap();
   const toggleWishlist = useToggleWishlistMutation();
   const markOwned = useMarkOwnedFromWishlistMutation();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const items = useMemo(() => {
     if (!cardsQuery.data || !wishlistQuery.data) return [];
     return buildWishlistWithCards(wishlistQuery.data, cardsQuery.data.cards);
   }, [cardsQuery.data, wishlistQuery.data]);
 
+  const isRefetching = cardsQuery.isRefetching || wishlistQuery.isRefetching;
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([cardsQuery.refetch(), wishlistQuery.refetch()]);
+    setIsRefreshing(false);
+  }, [cardsQuery, wishlistQuery]);
+
   if (cardsQuery.isLoading || wishlistQuery.isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-neutral-950">
-        <ActivityIndicator size="large" />
+      <View className="flex-1 bg-background px-4 pb-8 pt-2">
+        <Skeleton className="mb-3 h-3 w-40" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <WishlistRowSkeleton key={i} />
+        ))}
       </View>
     );
   }
 
   if (cardsQuery.isError || wishlistQuery.isError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6 dark:bg-neutral-950">
-        <Text className="text-center text-red-600 dark:text-red-400">Could not load wishlist.</Text>
+      <View className="flex-1 items-center justify-center gap-3 bg-background px-6">
+        <Text className="text-center text-destructive">Could not load wishlist.</Text>
+        <Button onPress={() => void handleRefresh()} disabled={isRefetching} variant="outline">
+          <Text>{isRefetching ? 'Retrying…' : 'Tap to retry'}</Text>
+        </Button>
       </View>
     );
   }
 
   return (
     <FlatList
-      className="flex-1 bg-white dark:bg-neutral-950"
+      className="flex-1 bg-background"
       data={items}
       keyExtractor={(item) => item.card_id}
       contentContainerClassName="px-4 pb-8 pt-2"
+      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void handleRefresh()} />}
       ListHeaderComponent={
-        <Text className="mb-3 text-xs text-neutral-500">
+        <Text variant="small" className="mb-3 text-muted-foreground">
           {items.length} card{items.length === 1 ? '' : 's'} on your wishlist
         </Text>
       }
       ListEmptyComponent={
         <View className="items-center py-12">
-          <Text className="text-center text-base text-neutral-600 dark:text-neutral-400">
+          <Text variant="muted" className="text-center text-base">
             Your wishlist is empty. Tap ♡ on any card to add it here.
           </Text>
         </View>
       }
       renderItem={({ item }) => (
-        <View className="mb-3 flex-row gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <View className="mb-3 flex-row gap-3 rounded-xl border border-border bg-card p-3">
           <Link href={`/card/${item.card.id}`} asChild>
-            <Pressable className="overflow-hidden rounded-md">
+            <Pressable className="overflow-hidden rounded-md active:opacity-70">
               {item.card.image_url ? (
                 <Image
                   source={{ uri: item.card.image_url }}
@@ -66,8 +103,8 @@ export default function WishlistScreen() {
                   resizeMode="contain"
                 />
               ) : (
-                <View className="h-24 w-[68px] items-center justify-center bg-neutral-200 dark:bg-neutral-800">
-                  <Text className="text-xs text-neutral-400">—</Text>
+                <View className="h-24 w-[68px] items-center justify-center bg-muted">
+                  <Text variant="muted" className="text-xs">—</Text>
                 </View>
               )}
             </Pressable>
@@ -75,11 +112,20 @@ export default function WishlistScreen() {
 
           <View className="flex-1 gap-2">
             <Link href={`/card/${item.card.id}`} asChild>
-              <Pressable>
-                <Text className="text-base font-semibold text-neutral-900 dark:text-white" numberOfLines={2}>
+              <Pressable className="active:opacity-70">
+                <Text className="text-base font-semibold text-foreground" numberOfLines={2}>
                   {item.card.name}
                 </Text>
-                <Text className="text-xs text-neutral-500">{item.card.set_name ?? item.card.set_id}</Text>
+                <View className="mt-1 flex-row items-center gap-1.5">
+                  <Text variant="small" className="text-muted-foreground">
+                    {item.card.set_name ?? item.card.set_id}
+                  </Text>
+                  {item.card.rarity_label ? (
+                    <Badge variant="secondary">
+                      <Text className="text-xs">{item.card.rarity_label}</Text>
+                    </Badge>
+                  ) : null}
+                </View>
               </Pressable>
             </Link>
 
@@ -87,14 +133,14 @@ export default function WishlistScreen() {
               <Pressable
                 disabled={markOwned.isPending}
                 onPress={() => markOwned.mutate({ cardId: item.card_id, quantity: 1 })}
-                className="rounded-md bg-blue-600 px-3 py-1.5">
-                <Text className="text-xs font-semibold text-white">Mark owned</Text>
+                className="rounded-md bg-primary px-3 py-1.5 active:opacity-80">
+                <Text className="text-xs font-semibold text-primary-foreground">Mark owned</Text>
               </Pressable>
               <Pressable
                 disabled={toggleWishlist.isPending}
                 onPress={() => toggleWishlist.mutate({ cardId: item.card_id, add: false })}
-                className="rounded-md border border-neutral-300 px-3 py-1.5 dark:border-neutral-700">
-                <Text className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">Remove</Text>
+                className="rounded-md border border-border px-3 py-1.5 active:opacity-70">
+                <Text className="text-xs font-semibold text-foreground">Remove</Text>
               </Pressable>
             </View>
           </View>

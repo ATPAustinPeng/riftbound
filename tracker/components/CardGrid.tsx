@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   useWindowDimensions,
@@ -47,6 +48,8 @@ interface CardGridProps {
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
   emptyMessage?: string;
   ListHeaderComponent?: ReactElement | null;
 }
@@ -116,6 +119,8 @@ export function CardGrid({
   isLoading = false,
   isError = false,
   onRetry,
+  onRefresh,
+  isRefreshing = false,
   emptyMessage = 'No cards match your filters.',
   ListHeaderComponent,
 }: CardGridProps) {
@@ -282,7 +287,10 @@ export function CardGrid({
       <View className="flex-1 bg-white dark:bg-neutral-950">
         <ScrollView
           stickyHeaderIndices={stickyHeaderIndices}
-          contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}>
+          contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
+          refreshControl={
+            onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined
+          }>
           {content}
         </ScrollView>
       </View>
@@ -302,6 +310,8 @@ export function CardGrid({
             <Text className="text-center text-neutral-500">{emptyMessage}</Text>
           </View>
         }
+        onRefresh={onRefresh}
+        refreshing={onRefresh ? isRefreshing : undefined}
         renderItem={({ item, index }) => (
           <View
             style={{
