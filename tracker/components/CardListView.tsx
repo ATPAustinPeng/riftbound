@@ -182,10 +182,9 @@ function CardListRow({
   const showFoilTrack = cardCanFoil && goal !== 'playset_normal';
 
   return (
-    <View
-      className={`flex-row items-center gap-2 border-b border-neutral-100 py-2.5 dark:border-neutral-900 ${dimmed ? 'opacity-40' : ''}`}>
+    <View className="flex-row items-center gap-2 border-b border-neutral-100 py-2.5 dark:border-neutral-900">
       <Link href={`/card/${card.id}`} asChild>
-        <Pressable className="min-w-0 flex-1">
+        <Pressable className={`min-w-0 flex-1 ${dimmed ? 'opacity-40' : ''}`}>
           <Text
             className="text-sm font-medium text-neutral-900 dark:text-white"
             numberOfLines={2}>
