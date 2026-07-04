@@ -90,7 +90,7 @@ function computeTileDimming(
     return { dimmed: false, foilMissing: false };
   }
   const cardCanFoil = canBeFoil(card);
-  const evaluation = evaluateGoal(goal, owned, foil, cardCanFoil);
+  const evaluation = evaluateGoal(goal, owned, foil, cardCanFoil, card.card_type);
   const dimmed = owned + foil === 0;
   const foilMissing =
     !dimmed && cardCanFoil && evaluation.normalComplete && !evaluation.foilComplete;

@@ -38,15 +38,24 @@ export const COLLECTION_GOALS: Array<{
   },
   {
     id: 'playset_separate',
-    shortLabel: '3 each',
-    description: '3 normal and 3 foil copies of each card (foil only for commons/uncommons).',
+    shortLabel: 'Playset',
+    description:
+      'Playset-sized normal and foil copies (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked; foil only for commons/uncommons).',
     statsSubtitle: '3+ each',
   },
   {
     id: 'playset_normal',
-    shortLabel: 'Playset (normal only)',
-    description: '3 normal copies; foil not required.',
+    shortLabel: 'Playset (no foil)',
+    description:
+      'Playset-sized normal copies (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked); foil not required.',
     statsSubtitle: '3+ normal',
+  },
+  {
+    id: 'playset_foil',
+    shortLabel: 'Playset (foil)',
+    description:
+      'Playset-sized foil copies for commons/uncommons (3 default; Battlefield/Legend fall back to 1 normal, Rune 12 normal; Tokens untracked; non-foil rarities use normal copies).',
+    statsSubtitle: '3+ foil',
   },
   {
     id: 'single_combined',
@@ -57,10 +66,25 @@ export const COLLECTION_GOALS: Array<{
   {
     id: 'playset_combined',
     shortLabel: '3 total',
-    description: '3 copies of each card, counting normal and foil together.',
+    description:
+      'Playset-sized copies combined (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked), counting normal and foil together.',
     statsSubtitle: '3+ combined',
   },
 ];
+
+export function getPlaysetTarget(cardType: string | null | undefined): number | null {
+  switch ((cardType ?? '').trim()) {
+    case 'Token':
+      return null;
+    case 'Battlefield':
+    case 'Legend':
+      return 1;
+    case 'Rune':
+      return 12;
+    default:
+      return 3;
+  }
+}
 
 export interface GoalEvaluation {
   target: number;
@@ -68,6 +92,7 @@ export interface GoalEvaluation {
   normalComplete: boolean;
   foilComplete: boolean;
   complete: boolean;
+  untracked: boolean;
 }
 
 export function evaluateGoal(
@@ -75,19 +100,56 @@ export function evaluateGoal(
   owned: number,
   foil: number,
   canFoil: boolean,
+  cardType?: string | null,
 ): GoalEvaluation {
-  if (goal === 'playset_normal') {
-    const complete = owned >= 3;
+  const playsetTarget = getPlaysetTarget(cardType);
+  if (playsetTarget === null) {
     return {
-      target: 3,
+      target: 0,
+      combined: false,
+      normalComplete: true,
+      foilComplete: true,
+      complete: true,
+      untracked: true,
+    };
+  }
+
+  if (goal === 'playset_foil') {
+    if (!canFoil) {
+      const normalComplete = owned >= playsetTarget;
+      return {
+        target: playsetTarget,
+        combined: false,
+        normalComplete,
+        foilComplete: true,
+        complete: normalComplete,
+        untracked: false,
+      };
+    }
+    const foilComplete = foil >= playsetTarget;
+    return {
+      target: playsetTarget,
+      combined: false,
+      normalComplete: true,
+      foilComplete,
+      complete: foilComplete,
+      untracked: false,
+    };
+  }
+
+  if (goal === 'playset_normal') {
+    const complete = owned >= playsetTarget;
+    return {
+      target: playsetTarget,
       combined: false,
       normalComplete: complete,
       foilComplete: true,
       complete,
+      untracked: false,
     };
   }
 
-  const target = goal.startsWith('single') ? 1 : 3;
+  const target = goal.startsWith('single') ? 1 : playsetTarget;
   const combined = goal.endsWith('combined');
 
   if (combined) {
@@ -99,6 +161,7 @@ export function evaluateGoal(
       normalComplete: complete,
       foilComplete: complete,
       complete,
+      untracked: false,
     };
   }
 
@@ -110,6 +173,7 @@ export function evaluateGoal(
       normalComplete,
       foilComplete: true,
       complete: normalComplete,
+      untracked: false,
     };
   }
 
@@ -120,6 +184,7 @@ export function evaluateGoal(
     normalComplete,
     foilComplete,
     complete: normalComplete && foilComplete,
+    untracked: false,
   };
 }
 
@@ -318,7 +383,8 @@ function countGoalCompleteCards(
     const entry = userCards[card.id];
     const owned = entry?.quantity_owned ?? 0;
     const foil = entry?.quantity_owned_foil ?? 0;
-    if (evaluateGoal(goal, owned, foil, canBeFoil(card)).complete) {
+    const evaluation = evaluateGoal(goal, owned, foil, canBeFoil(card), card.card_type);
+    if (!evaluation.untracked && evaluation.complete) {
       count++;
     }
   }
@@ -600,7 +666,8 @@ export function getOwnedFoilQuantity(
   return map?.[cardId]?.quantity_owned_foil ?? 0;
 }
 
-export function canBeFoil(card: Pick<Card, 'rarity_id'>): boolean {
+export function canBeFoil(card: Pick<Card, 'rarity_id' | 'card_type'>): boolean {
+  if (card.card_type === 'Rune' || card.card_type === 'Token') return false;
   return card.rarity_id === 'common' || card.rarity_id === 'uncommon';
 }
 

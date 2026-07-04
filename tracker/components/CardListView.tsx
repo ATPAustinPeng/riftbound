@@ -1,7 +1,14 @@
 import { FlashList } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import type { ReactElement } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useMemo, type ReactElement } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import {
   canBeFoil,
@@ -13,6 +20,46 @@ import {
 } from '@/lib/queries';
 
 const HORIZONTAL_PADDING = 16;
+
+type RarityBucket = 'common' | 'uncommon' | 'rare' | 'epicPlus';
+
+interface RarityBuckets {
+  common: FilteredCard[];
+  uncommon: FilteredCard[];
+  rare: FilteredCard[];
+  epicPlus: FilteredCard[];
+}
+
+interface ColumnGroup {
+  label: string;
+  buckets: RarityBucket[];
+}
+
+function partitionByRarity(cards: FilteredCard[]): RarityBuckets {
+  const buckets: RarityBuckets = { common: [], uncommon: [], rare: [], epicPlus: [] };
+  for (const card of cards) {
+    if (card.rarity_id === 'common') buckets.common.push(card);
+    else if (card.rarity_id === 'uncommon') buckets.uncommon.push(card);
+    else if (card.rarity_id === 'rare') buckets.rare.push(card);
+    else buckets.epicPlus.push(card);
+  }
+  return buckets;
+}
+
+function columnGroupsForWidth(width: number): ColumnGroup[] {
+  if (width >= 1024) {
+    return [
+      { label: 'Common', buckets: ['common'] },
+      { label: 'Uncommon', buckets: ['uncommon'] },
+      { label: 'Rare', buckets: ['rare'] },
+      { label: 'Epic+', buckets: ['epicPlus'] },
+    ];
+  }
+  return [
+    { label: 'Common + Uncommon', buckets: ['common', 'uncommon'] },
+    { label: 'Rare + Epic+', buckets: ['rare', 'epicPlus'] },
+  ];
+}
 
 interface CardListViewProps {
   cards: FilteredCard[];
@@ -121,7 +168,9 @@ function CardListRow({
   const cardCanFoil = canBeFoil(card);
   const domains = index.domainsByCardId[card.id] ?? [];
   const showControls = quickAdd && (!!onOwnedChange || !!onFoilOwnedChange);
-  const evaluation = goal ? evaluateGoal(goal, owned, foilOwned, cardCanFoil) : null;
+  const evaluation = goal
+    ? evaluateGoal(goal, owned, foilOwned, cardCanFoil, card.card_type)
+    : null;
   const dimmed = dimMissing && owned + foilOwned === 0;
   const foilMissing =
     dimMissing &&
@@ -130,6 +179,7 @@ function CardListRow({
     evaluation &&
     evaluation.normalComplete &&
     !evaluation.foilComplete;
+  const showFoilTrack = cardCanFoil && goal !== 'playset_normal';
 
   return (
     <View
@@ -217,7 +267,7 @@ function CardListRow({
               </View>
             ) : null}
           </>
-        ) : evaluation?.combined ? (
+        ) : evaluation?.untracked ? null : evaluation?.combined ? (
           <ProgressRow
             label=""
             owned={owned + foilOwned}
@@ -242,7 +292,7 @@ function CardListRow({
               onDecrement={() => onOwnedChange?.(card.id, owned - 1)}
               onIncrement={() => onOwnedChange?.(card.id, owned + 1)}
             />
-            {cardCanFoil && goal !== 'playset_normal' ? (
+            {showFoilTrack ? (
               <ProgressRow
                 label="✦"
                 owned={foilOwned}
@@ -276,6 +326,11 @@ export function CardListView({
   ListHeaderComponent,
   dimMissing = false,
 }: CardListViewProps) {
+  const { width } = useWindowDimensions();
+  const buckets = useMemo(() => partitionByRarity(cards), [cards]);
+  const columnGroups = useMemo(() => columnGroupsForWidth(width), [width]);
+  const useSingleColumn = width < 640;
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-neutral-950">
@@ -300,33 +355,84 @@ export function CardListView({
     );
   }
 
+  const renderCardRow = (card: FilteredCard) => (
+    <CardListRow
+      key={card._listKey ?? card.id}
+      card={card}
+      index={index}
+      owned={ownedByCardId?.[card.id] ?? 0}
+      foilOwned={foilOwnedByCardId?.[card.id] ?? 0}
+      quantityMode={quantityMode}
+      goal={goal}
+      quickAdd={quickAdd}
+      dimMissing={dimMissing}
+      onOwnedChange={onOwnedChange}
+      onFoilOwnedChange={onFoilOwnedChange}
+    />
+  );
+
+  const emptyList = (
+    <View className="items-center py-12">
+      <Text className="text-center text-neutral-500">{emptyMessage}</Text>
+    </View>
+  );
+
+  if (useSingleColumn) {
+    return (
+      <View className="flex-1 bg-white dark:bg-neutral-950">
+        <FlashList
+          data={cards}
+          keyExtractor={(item) => item._listKey ?? item.id}
+          contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
+          ListHeaderComponent={ListHeaderComponent ?? undefined}
+          ListEmptyComponent={emptyList}
+          renderItem={({ item }) => (
+            <CardListRow
+              card={item}
+              index={index}
+              owned={ownedByCardId?.[item.id] ?? 0}
+              foilOwned={foilOwnedByCardId?.[item.id] ?? 0}
+              quantityMode={quantityMode}
+              goal={goal}
+              quickAdd={quickAdd}
+              dimMissing={dimMissing}
+              onOwnedChange={onOwnedChange}
+              onFoilOwnedChange={onFoilOwnedChange}
+            />
+          )}
+        />
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-white dark:bg-neutral-950">
-      <FlashList
-        data={cards}
-        keyExtractor={(item) => item._listKey ?? item.id}
-        contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
-        ListHeaderComponent={ListHeaderComponent ?? undefined}
-        ListEmptyComponent={
-          <View className="items-center py-12">
-            <Text className="text-center text-neutral-500">{emptyMessage}</Text>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}>
+        {ListHeaderComponent}
+        {cards.length === 0 ? (
+          emptyList
+        ) : (
+          <View className="flex-row gap-4">
+            {columnGroups.map((group) => {
+              const groupCards = group.buckets.flatMap((bucket) => buckets[bucket]);
+              return (
+                <View key={group.label} className="flex-1">
+                  <Text className="py-2 text-xs font-semibold uppercase text-neutral-500">
+                    {group.label}
+                  </Text>
+                  {groupCards.length === 0 ? (
+                    <Text className="py-1 text-xs text-neutral-400">None</Text>
+                  ) : (
+                    groupCards.map(renderCardRow)
+                  )}
+                </View>
+              );
+            })}
           </View>
-        }
-        renderItem={({ item }) => (
-          <CardListRow
-            card={item}
-            index={index}
-            owned={ownedByCardId?.[item.id] ?? 0}
-            foilOwned={foilOwnedByCardId?.[item.id] ?? 0}
-            quantityMode={quantityMode}
-            goal={goal}
-            quickAdd={quickAdd}
-            dimMissing={dimMissing}
-            onOwnedChange={onOwnedChange}
-            onFoilOwnedChange={onFoilOwnedChange}
-          />
         )}
-      />
+      </ScrollView>
     </View>
   );
 }
