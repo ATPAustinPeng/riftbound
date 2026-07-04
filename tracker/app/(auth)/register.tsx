@@ -1,16 +1,10 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 
+import { AuthField } from '@/components/auth/AuthField';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
@@ -19,17 +13,19 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function handleRegister() {
     if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Enter your email and password.');
+      setFormError('Enter your email and password.');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Weak password', 'Password must be at least 6 characters.');
+      setFormError('Password must be at least 6 characters.');
       return;
     }
+    setFormError(null);
 
     setIsSubmitting(true);
     const { data, error } = await supabase.auth.signUp({
@@ -62,9 +58,10 @@ export default function RegisterScreen() {
 
   async function handleMagicLink() {
     if (!email.trim()) {
-      Alert.alert('Missing email', 'Enter your email to receive a magic link.');
+      setFormError('Enter your email to receive a magic link.');
       return;
     }
+    setFormError(null);
 
     setIsSubmitting(true);
     const { error } = await supabase.auth.signInWithOtp({
@@ -88,69 +85,68 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white dark:bg-neutral-950">
+      className="flex-1 bg-background">
       <View className="flex-1 justify-center px-6">
-        <Text className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white">
+        <Text variant="h1" className="mb-2 text-left text-3xl">
           Create account
         </Text>
-        <Text className="mb-8 text-base text-neutral-600 dark:text-neutral-400">
+        <Text variant="muted" className="mb-8 text-base">
           Track your Riftbound collection
         </Text>
 
-        <TextInput
+        <AuthField
+          label="Display name (optional)"
           autoCapitalize="words"
-          placeholder="Display name (optional)"
-          placeholderTextColor="#9ca3af"
+          placeholder="Your name"
           value={displayName}
           onChangeText={setDisplayName}
-          className="mb-4 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
         />
 
-        <TextInput
+        <AuthField
+          label="Email"
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
-          placeholder="Email"
-          placeholderTextColor="#9ca3af"
+          placeholder="you@example.com"
           value={email}
-          onChangeText={setEmail}
-          className="mb-4 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+          onChangeText={(text) => {
+            setEmail(text);
+            setFormError(null);
+          }}
         />
 
-        <TextInput
+        <AuthField
+          label="Password"
           autoCapitalize="none"
           autoComplete="new-password"
-          placeholder="Password"
-          placeholderTextColor="#9ca3af"
+          placeholder="At least 6 characters"
           secureTextEntry
           value={password}
-          onChangeText={setPassword}
-          className="mb-4 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+          onChangeText={(text) => {
+            setPassword(text);
+            setFormError(null);
+          }}
         />
 
-        <Pressable
-          disabled={isSubmitting}
-          onPress={handleRegister}
-          className="mb-3 items-center rounded-lg bg-blue-600 py-3 disabled:opacity-60">
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-base font-semibold text-white">Create account</Text>
-          )}
-        </Pressable>
+        {formError ? <Text className="mb-4 text-sm text-destructive">{formError}</Text> : null}
 
-        <Pressable
+        <Button disabled={isSubmitting} onPress={handleRegister} className="mb-3">
+          {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text>Create account</Text>}
+        </Button>
+
+        <Button
           disabled={isSubmitting}
           onPress={handleMagicLink}
-          className="mb-6 items-center rounded-lg border border-blue-600 py-3 disabled:opacity-60">
-          <Text className="text-base font-semibold text-blue-600">Send magic link instead</Text>
-        </Pressable>
+          variant="outline"
+          className="mb-6">
+          <Text>Send magic link instead</Text>
+        </Button>
 
         <View className="flex-row justify-center gap-1">
-          <Text className="text-neutral-600 dark:text-neutral-400">Already have an account?</Text>
+          <Text variant="muted">Already have an account?</Text>
           <Link href="/(auth)/login" asChild>
-            <Pressable>
-              <Text className="font-semibold text-blue-600">Sign in</Text>
+            <Pressable className="active:opacity-60">
+              <Text className="font-semibold text-primary">Sign in</Text>
             </Pressable>
           </Link>
         </View>

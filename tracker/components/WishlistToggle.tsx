@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, Text, View } from 'react-native';
 
 interface WishlistToggleProps {
@@ -7,11 +8,16 @@ interface WishlistToggleProps {
 }
 
 export function WishlistToggle({ isWishlisted, onToggle, disabled = false }: WishlistToggleProps) {
+  function handlePress() {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onToggle();
+  }
+
   return (
     <Pressable
       disabled={disabled}
-      onPress={onToggle}
-      className={`flex-row items-center justify-center gap-2 rounded-lg border px-4 py-3 ${
+      onPress={handlePress}
+      className={`flex-row items-center justify-center gap-2 rounded-lg border px-4 py-3 active:opacity-70 ${
         isWishlisted
           ? 'border-pink-600 bg-pink-50 dark:border-pink-500 dark:bg-pink-950'
           : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900'

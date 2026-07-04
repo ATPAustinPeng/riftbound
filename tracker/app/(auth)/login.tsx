@@ -1,16 +1,10 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 
+import { AuthField } from '@/components/auth/AuthField';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
@@ -19,12 +13,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mode, setMode] = useState<'password' | 'magic'>('password');
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function handlePasswordSignIn() {
     if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Enter your email and password.');
+      setFormError('Enter your email and password.');
       return;
     }
+    setFormError(null);
 
     setIsSubmitting(true);
     const { error } = await supabase.auth.signInWithPassword({
@@ -43,9 +39,10 @@ export default function LoginScreen() {
 
   async function handleMagicLink() {
     if (!email.trim()) {
-      Alert.alert('Missing email', 'Enter your email to receive a magic link.');
+      setFormError('Enter your email to receive a magic link.');
       return;
     }
+    setFormError(null);
 
     setIsSubmitting(true);
     const { error } = await supabase.auth.signInWithOtp({
@@ -72,63 +69,69 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white dark:bg-neutral-950">
+      className="flex-1 bg-background">
       <View className="flex-1 justify-center px-6">
-        <Text className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white">
+        <Text variant="h1" className="mb-2 text-left text-3xl">
           Riftbound Tracker
         </Text>
-        <Text className="mb-8 text-base text-neutral-600 dark:text-neutral-400">
+        <Text variant="muted" className="mb-8 text-base">
           Sign in to manage your collection
         </Text>
 
-        <TextInput
+        <AuthField
+          label="Email"
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
-          placeholder="Email"
-          placeholderTextColor="#9ca3af"
+          placeholder="you@example.com"
           value={email}
-          onChangeText={setEmail}
-          className="mb-4 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+          onChangeText={(text) => {
+            setEmail(text);
+            setFormError(null);
+          }}
         />
 
         {mode === 'password' && (
-          <TextInput
+          <AuthField
+            label="Password"
             autoCapitalize="none"
             autoComplete="password"
-            placeholder="Password"
-            placeholderTextColor="#9ca3af"
+            placeholder="••••••••"
             secureTextEntry
             value={password}
-            onChangeText={setPassword}
-            className="mb-4 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+            onChangeText={(text) => {
+              setPassword(text);
+              setFormError(null);
+            }}
           />
         )}
 
-        <Pressable
-          disabled={isSubmitting}
-          onPress={handleSubmit}
-          className="mb-4 items-center rounded-lg bg-blue-600 py-3 disabled:opacity-60">
+        {formError ? <Text className="mb-4 text-sm text-destructive">{formError}</Text> : null}
+
+        <Button disabled={isSubmitting} onPress={handleSubmit} className="mb-4">
           {isSubmitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text className="text-base font-semibold text-white">
-              {mode === 'magic' ? 'Send magic link' : 'Sign in'}
-            </Text>
+            <Text>{mode === 'magic' ? 'Send magic link' : 'Sign in'}</Text>
           )}
-        </Pressable>
+        </Button>
 
-        <Pressable onPress={() => setMode(mode === 'password' ? 'magic' : 'password')} className="mb-6">
-          <Text className="text-center text-sm text-blue-600">
+        <Pressable
+          onPress={() => {
+            setMode(mode === 'password' ? 'magic' : 'password');
+            setFormError(null);
+          }}
+          className="mb-6 active:opacity-60">
+          <Text className="text-center text-sm text-primary">
             {mode === 'password' ? 'Use magic link instead' : 'Use password instead'}
           </Text>
         </Pressable>
 
         <View className="flex-row justify-center gap-1">
-          <Text className="text-neutral-600 dark:text-neutral-400">No account?</Text>
+          <Text variant="muted">No account?</Text>
           <Link href="/(auth)/register" asChild>
-            <Pressable>
-              <Text className="font-semibold text-blue-600">Create one</Text>
+            <Pressable className="active:opacity-60">
+              <Text className="font-semibold text-primary">Create one</Text>
             </Pressable>
           </Link>
         </View>

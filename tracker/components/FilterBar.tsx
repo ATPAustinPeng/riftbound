@@ -42,8 +42,8 @@ function FilterChip({
       onPress={onPress}
       className={`rounded-full border px-3 py-1.5 ${
         active
-          ? 'border-blue-600 bg-blue-600'
-          : 'border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+          ? 'border-blue-600 bg-blue-600 active:bg-blue-700'
+          : 'border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800'
       }`}>
       <Text
         className={`text-xs font-medium ${active ? 'text-white' : 'text-neutral-700 dark:text-neutral-300'}`}>
@@ -63,7 +63,7 @@ function SetTab({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} className="px-3 py-2">
+    <Pressable onPress={onPress} className="px-3 py-2 active:opacity-60">
       <Text
         className={`text-sm ${active ? 'font-bold text-neutral-900 dark:text-white' : 'font-medium text-neutral-500 dark:text-neutral-400'}`}>
         {label}

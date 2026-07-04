@@ -54,6 +54,13 @@ export default function BrowseScreen() {
     [wishlistQuery.data],
   );
 
+  const isRefreshing = cardsQuery.isRefetching || userCardsQuery.isRefetching || wishlistQuery.isRefetching;
+  const handleRefresh = useCallback(() => {
+    cardsQuery.refetch();
+    userCardsQuery.refetch();
+    wishlistQuery.refetch();
+  }, [cardsQuery, userCardsQuery, wishlistQuery]);
+
   if (!cardsQuery.data) {
     return (
       <CardBrowser
@@ -98,6 +105,8 @@ export default function BrowseScreen() {
       isLoading={cardsQuery.isLoading}
       isError={cardsQuery.isError}
       onRetry={() => cardsQuery.refetch()}
+      onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
       emptyMessage="No cards match your filters."
     />
   );

@@ -4,6 +4,7 @@ import { useMemo, type ReactElement } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   useWindowDimensions,
@@ -74,6 +75,8 @@ interface CardListViewProps {
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
   emptyMessage?: string;
   ListHeaderComponent?: ReactElement | null;
   dimMissing?: boolean;
@@ -321,6 +324,8 @@ export function CardListView({
   isLoading = false,
   isError = false,
   onRetry,
+  onRefresh,
+  isRefreshing = false,
   emptyMessage = 'No cards match your filters.',
   ListHeaderComponent,
   dimMissing = false,
@@ -385,6 +390,8 @@ export function CardListView({
           contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
           ListHeaderComponent={ListHeaderComponent ?? undefined}
           ListEmptyComponent={emptyList}
+          onRefresh={onRefresh}
+          refreshing={onRefresh ? isRefreshing : undefined}
           renderItem={({ item }) => (
             <CardListRow
               card={item}
@@ -408,7 +415,10 @@ export function CardListView({
     <View className="flex-1 bg-white dark:bg-neutral-950">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}>
+        contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
+        refreshControl={
+          onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined
+        }>
         {ListHeaderComponent}
         {cards.length === 0 ? (
           emptyList

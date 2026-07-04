@@ -71,6 +71,12 @@ export default function CollectionScreen() {
     if (userCardsQuery.isError) userCardsQuery.refetch();
   };
 
+  const isRefreshing = cardsQuery.isRefetching || userCardsQuery.isRefetching;
+  const handleRefresh = () => {
+    cardsQuery.refetch();
+    userCardsQuery.refetch();
+  };
+
   if (!cardsQuery.data) {
     return (
       <CardBrowser
@@ -114,6 +120,8 @@ export default function CollectionScreen() {
       isLoading={isLoading}
       isError={isError}
       onRetry={onRetry}
+      onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
       showGoalSelector
       showCollectionControls
       emptyMessage="No cards in your collection yet. Browse cards and add owned copies from the card detail screen."

@@ -1,11 +1,16 @@
 import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 
+import { useColorScheme } from '@/components/useColorScheme';
+import { NAV_THEME } from '@/lib/theme';
+
 export default function TabLayout() {
+  const colorScheme = useColorScheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: NAV_THEME[colorScheme].colors.primary,
         headerShown: true,
       }}>
       <Tabs.Screen
