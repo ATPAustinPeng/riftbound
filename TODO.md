@@ -4,16 +4,45 @@
 - give claude access to Riftbound core rules and errata
 - have claude write up a feature list for this app
 - have claude write a landing page for this app
+- when a new set comes out, i want the you to automatically pull from https://playriftbound.com/en-us/card-gallery/
+- when new rules are added, i want you to automatically pull from https://playriftbound.com/en-us/rules-hub/
+- create a commit push skill that looks at the changes, proposes commits, lets the user review, once confirmed, pushes the changes
 
 ## Bugs
-- running into a lot of index out of bound when searching lots of cards
-- if there are no copies of a card, default count to 0 (check list view proving grounds)
-- (verify) i think i noticed a case where i had a copy of a card and it was still showing in the missing section?
+- (unverified) if there are no copies of a card, default count to 0 instead of leaving it blank (check list view proving grounds)
+- (unverified) i think i noticed a case where i had a copy of a card and it was still showing in the missing section?
 - missing page options
   - 1 of each, 3 of each (should always show foil tracker -> as these are master sets)
 - when toggling btwn grid and list view, the sorting/filtering options that can affect grid/list should be hidden/appear accordingly (like grid only sorting options should show on grid view only)
 
 ## Features
+### Game Partner
+- bug
+  - starting a game + undoing game start (ui shows "not started") and hitting next turn -> next player becomes the starting player...
+- score tracker color coding turns (red for opp, blue for you?)
+- score tracker naming
+  - should i do a me/you that flips? as turns go by? having the legend card name makes it a bit confusing imo
+  - players could also be playing the same legend
+- event log
+  - 2 col base, one for each player. the items in the list should be stagged by turn so you can see when turns are passed & thus what happened each turn
+  - ex. but 
+
+| turn | me | opp |
+| 1 |  |  |
+|  |  |  |
+| 2 | c |  |
+|  |  | c |
+| 3 | hold + conquer |  |
+|  |  |  |
+| 4 | hold x2 |  |
+|  |  | conquer x2 |
+...
+
+  - instead of a list, it should be more of a order based thing (ex. showing order & what happened each turn)
+  - want to make it so that one glance the players can tell what happened, rather than reading the log
+- functionality to delete match history should eventually be disabled
+
+### Vetting
 - sorting/filtering (still a bit jank)
   - after picking <ALL> and <OGN> and sort by color -> i want runes, tokens, legends (multi-color), sig spells to be filtered to the end
   - enable sorting by unit/spell/gear
@@ -22,19 +51,6 @@
 - collecting/playset
   - list view
     - add alternating colors (ex. gray/white) per row
-- score tracking
-  - things to track at the start of the match
-    - matchup
-    - bo1/bo3
-    - starting player
-  - things to note at start/between games
-    - battlefield selection
-    - side-in/out
-    - mulligan choice
-  - things to note during games
-    - score (by turn & bf)
-      - 3 ways to earn points (conquer, hold, effects)
-    - when a player draws from conquer but unable to score
 - your inventory/cost tracking (are you up or down $$$)
   - happy path -> take a picture of cards (the model should be fine with partial obfuscation of the cards, messy layout, bad resolution)
   - add a confirmation screen for teh user to confirm counts before adding to collection
@@ -58,10 +74,8 @@
 ## OTHER
 ### Legends
 - OGN legends
-  - kaisa
   - voli
   - leona
-  - teemo
   - viktor
 - SFD legends
   - draven
@@ -69,7 +83,5 @@
   - ezreal
 
 ### Promos
-- OGN NN promo
-  - consult the past
 - SFD NN promo
   - chaos rune

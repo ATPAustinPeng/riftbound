@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { clearActiveMatch } from '@/lib/match-store';
 import { Profile, DEFAULT_COLLECTION_GOAL, isValidCollectionGoal, type CollectionGoal } from '@/lib/types';
 
 import { supabase } from './supabase';
@@ -97,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    // The active-match slot is device-local; never leak it across accounts.
+    clearActiveMatch();
     setProfile(null);
   }, []);
 

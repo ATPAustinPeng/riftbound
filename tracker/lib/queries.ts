@@ -14,6 +14,11 @@ import type {
   CardWithMeta,
   CollectionGoal,
   CollectionStats,
+  GameEvent,
+  Match,
+  MatchGame,
+  MatchGameWithEvents,
+  MatchWithLegends,
   Set,
   UserCard,
   WishlistItem,
@@ -198,6 +203,8 @@ export const queryKeys = {
   wishlist: (userId: string) => ['wishlist', userId] as const,
   collectionStats: (userId: string, goal: CollectionGoal) =>
     ['collectionStats', userId, goal] as const,
+  matches: (userId: string) => ['matches', userId] as const,
+  matchDetail: (matchId: string) => ['matchDetail', matchId] as const,
 };
 
 export interface CardsIndex {
@@ -864,4 +871,248 @@ export function playsetProgress(quantityOwned: number): { owned: number; target:
     target: PLAYSET_SIZE,
     complete: quantityOwned >= PLAYSET_SIZE,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Match / score tracking                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The plain async fns below (insertMatch, upsertMatchGame, upsertGameEvents)
+ * exist for the sync layer (lib/match-sync.ts) only — components must go
+ * through the hooks. Everything is upsert-by-id so offline retries are
+ * harmless.
+ */
+
+/** Insert (idempotent upsert by id) a match row. Sync layer only. */
+export async function insertMatch(match: Match): Promise<void> {
+  const { error } = await supabase.from('matches').upsert(match, { onConflict: 'id' });
+  if (error) throw new Error(error.message);
+}
+
+/** Upsert (by id) a match_games row. Sync layer only. */
+export async function upsertMatchGame(game: MatchGame): Promise<void> {
+  const { error } = await supabase.from('match_games').upsert(game, { onConflict: 'id' });
+  if (error) throw new Error(error.message);
+}
+
+/** Batch-upsert (by id) game_events rows. Sync layer only. */
+export async function upsertGameEvents(events: GameEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  const { error } = await supabase.from('game_events').upsert(events, { onConflict: 'id' });
+  if (error) throw new Error(error.message);
+}
+
+async function fetchMatches(userId: string): Promise<Match[]> {
+  // fetchAllRows only pages with ascending order; reverse for started_at desc.
+  // `id` breaks started_at ties so pagination never drops/duplicates rows.
+  const rows = await fetchAllRows<Match>('matches', ['started_at', 'id'], {
+    column: 'user_id',
+    value: userId,
+  });
+  return rows.reverse();
+}
+
+/** Resolve match legends client-side from the cached cards index (no server join). */
+export function buildMatchesWithLegends(matches: Match[], cards: Card[]): MatchWithLegends[] {
+  const cardById = new Map(cards.map((c) => [c.id, c]));
+  return matches.map((match) => ({
+    ...match,
+    my_legend: match.my_legend_card_id ? (cardById.get(match.my_legend_card_id) ?? null) : null,
+    opponent_legend: match.opponent_legend_card_id
+      ? (cardById.get(match.opponent_legend_card_id) ?? null)
+      : null,
+  }));
+}
+
+/** Match history, newest first, with legends joined from the cards cache. */
+export function useMatchesQuery(): UseQueryResult<MatchWithLegends[]> {
+  const { user } = useAuth();
+  const indexQuery = useCardsIndex();
+  const cards = indexQuery.data?.cards;
+
+  return useQuery({
+    queryKey: queryKeys.matches(user?.id ?? ''),
+    queryFn: () => fetchMatches(user!.id),
+    enabled: !!user?.id,
+    select: (matches: Match[]) => buildMatchesWithLegends(matches, cards ?? []),
+  });
+}
+
+export interface MatchDetail {
+  match: Match;
+  games: MatchGameWithEvents[];
+}
+
+async function fetchMatchDetail(matchId: string): Promise<MatchDetail | null> {
+  const matchResult = await supabase.from('matches').select('*').eq('id', matchId).maybeSingle();
+  if (matchResult.error) throw new Error(matchResult.error.message);
+  if (!matchResult.data) return null;
+  const match = matchResult.data as Match;
+
+  const games = await fetchAllRows<MatchGame>('match_games', ['game_number', 'id'], {
+    column: 'match_id',
+    value: matchId,
+  });
+  const eventsPerGame = await Promise.all(
+    games.map((game) =>
+      fetchAllRows<GameEvent>('game_events', ['seq'], { column: 'game_id', value: game.id }),
+    ),
+  );
+
+  return {
+    match,
+    games: games.map((game, i) => ({ ...game, events: eventsPerGame[i] })),
+  };
+}
+
+/** Read-only match detail (completed matches); live matches come from the match store. */
+export function useMatchDetailQuery(
+  matchId: string | undefined,
+): UseQueryResult<MatchDetail | null> {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: queryKeys.matchDetail(matchId ?? ''),
+    queryFn: () => fetchMatchDetail(matchId!),
+    enabled: !!matchId && !!user?.id,
+  });
+}
+
+export interface MatchStats {
+  wins: number;
+  losses: number;
+  draws: number;
+  /** Completed matches. */
+  matchesPlayed: number;
+  /** Completed games across all matches. */
+  gamesPlayed: number;
+  /** wins / matchesPlayed as a 0–1 fraction (0 when no completed matches). */
+  winRate: number;
+}
+
+export function computeMatchStats(
+  matches: Match[] | undefined,
+  games: MatchGame[] | undefined,
+): MatchStats {
+  let wins = 0;
+  let losses = 0;
+  let draws = 0;
+  let matchesPlayed = 0;
+
+  for (const match of matches ?? []) {
+    if (match.status !== 'completed') continue;
+    matchesPlayed++;
+    if (match.result === 'win') wins++;
+    else if (match.result === 'loss') losses++;
+    else if (match.result === 'draw') draws++;
+  }
+
+  const gamesPlayed = (games ?? []).filter((game) => game.status === 'completed').length;
+
+  return {
+    wins,
+    losses,
+    draws,
+    matchesPlayed,
+    gamesPlayed,
+    winRate: matchesPlayed > 0 ? wins / matchesPlayed : 0,
+  };
+}
+
+/**
+ * All of the user's match_games rows (per-game scores for history rows,
+ * stats). Lives under the matches key so queryKeys.matches invalidation
+ * covers both.
+ */
+export function useMatchGamesQuery(): UseQueryResult<MatchGame[]> {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: [...queryKeys.matches(user?.id ?? ''), 'games'] as const,
+    queryFn: () =>
+      // `id` breaks started_at ties so pagination never drops/duplicates rows.
+      fetchAllRows<MatchGame>('match_games', ['started_at', 'id'], {
+        column: 'user_id',
+        value: user!.id,
+      }),
+    enabled: !!user?.id,
+  });
+}
+
+/** Client-side fold over match history: W-L-D record, games played, win rate. */
+export function useMatchStats(): { stats: MatchStats; isLoading: boolean } {
+  const matchesQuery = useMatchesQuery();
+  const gamesQuery = useMatchGamesQuery();
+
+  return {
+    stats: computeMatchStats(matchesQuery.data, gamesQuery.data),
+    isLoading: matchesQuery.isLoading || gamesQuery.isLoading,
+  };
+}
+
+/** Delete a match (games/events cascade via FK), with optimistic list removal. */
+export function useDeleteMatchMutation() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = user?.id ?? '';
+
+  return useMutation({
+    mutationFn: async (matchId: string) => {
+      if (!userId) throw new Error('Not signed in');
+      const { error } = await supabase.from('matches').delete().eq('id', matchId);
+      if (error) throw error;
+    },
+    onMutate: async (matchId) => {
+      if (!userId) return;
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.matches(userId) });
+      const previous = queryClient.getQueryData<Match[]>(queryKeys.matches(userId));
+
+      queryClient.setQueryData<Match[]>(queryKeys.matches(userId), (old) =>
+        (old ?? []).filter((match) => match.id !== matchId),
+      );
+
+      return { previous };
+    },
+    onError: (_err, _matchId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.matches(userId), context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.matches(userId) });
+    },
+  });
+}
+
+/** `cards.card_type` is comma-joined text; match a single type within it. */
+function hasCardType(card: Card, type: string): boolean {
+  return (card.card_type ?? '').split(',').some((part) => part.trim() === type);
+}
+
+/** One canonical printing per name (earliest set, then lowest collector number), sorted by name. */
+function dedupeByNameCanonical(cards: Card[]): Card[] {
+  const byName = new Map<string, Card>();
+  for (const card of cards) {
+    const existing = byName.get(card.name);
+    if (
+      !existing ||
+      compareSetIds(card.set_id, existing.set_id) < 0 ||
+      (compareSetIds(card.set_id, existing.set_id) === 0 && compareCards(card, existing) < 0)
+    ) {
+      byName.set(card.name, card);
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Legend picker options: deduped by name, canonical printing, sorted by name. */
+export function getLegendOptions(cards: Card[]): Card[] {
+  return dedupeByNameCanonical(cards.filter((card) => hasCardType(card, 'Legend')));
+}
+
+/** Battlefield picker options: deduped by name, canonical printing, sorted by name. */
+export function getBattlefieldOptions(cards: Card[]): Card[] {
+  return dedupeByNameCanonical(cards.filter((card) => hasCardType(card, 'Battlefield')));
 }

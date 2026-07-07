@@ -102,6 +102,142 @@ export interface WishlistItemWithCard extends WishlistItem {
   card: Card;
 }
 
+/* ------------------------------------------------------------------ */
+/* Match / score tracking (mirrors supabase/migrations/0007_matches.sql) */
+/* ------------------------------------------------------------------ */
+
+export type PlayerRef = 'me' | 'opponent';
+
+export type MatchFormat = 'bo1' | 'bo3';
+
+export type GameMode = '1v1' | '2v2' | 'ffa';
+
+export type MatchStatus = 'in_progress' | 'completed' | 'abandoned';
+
+export type MatchResult = 'win' | 'loss' | 'draw';
+
+export type GameWinner = 'me' | 'opponent' | 'draw';
+
+export type EventActor = PlayerRef | 'system';
+
+/**
+ * Known event types. The `game_events.event_type` column has no SQL check so
+ * future (e.g. audio-inferred) types can appear without a migration; row
+ * interfaces therefore type the column as `GameEventType | (string & {})`.
+ */
+export type GameEventType =
+  | 'game_start'
+  | 'turn_start'
+  | 'score_conquer'
+  | 'score_hold'
+  | 'score_effect'
+  | 'draw_instead'
+  | 'control_change'
+  | 'hold_skipped'
+  | 'undo'
+  | 'note'
+  | 'game_end';
+
+const GAME_EVENT_TYPES: readonly GameEventType[] = [
+  'game_start',
+  'turn_start',
+  'score_conquer',
+  'score_hold',
+  'score_effect',
+  'draw_instead',
+  'control_change',
+  'hold_skipped',
+  'undo',
+  'note',
+  'game_end',
+];
+
+export function isValidGameEventType(value: unknown): value is GameEventType {
+  return (
+    typeof value === 'string' &&
+    (GAME_EVENT_TYPES as readonly string[]).includes(value)
+  );
+}
+
+export interface Match {
+  id: string;
+  user_id: string;
+  format: MatchFormat;
+  game_mode: GameMode;
+  my_legend_card_id: string | null;
+  /** Nullable = opponent legend unknown. */
+  opponent_legend_card_id: string | null;
+  my_deck_name: string | null;
+  opponent_deck_name: string | null;
+  status: MatchStatus;
+  result: MatchResult | null;
+  notes: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatchGame {
+  id: string;
+  match_id: string;
+  user_id: string;
+  game_number: number;
+  starting_player: PlayerRef | null;
+  my_battlefield_card_id: string | null;
+  opponent_battlefield_card_id: string | null;
+  /** Cards set aside during mulligan (0–2). */
+  my_mulligan_count: number | null;
+  opponent_mulligan_count: number | null;
+  /** Side-in/out notes (games 2–3 of a Bo3). */
+  side_notes: string | null;
+  /** Base by mode + battlefield "+1 to win" modifiers (stack); default 8. */
+  target_score: number;
+  status: MatchStatus;
+  /** Final scores, written at game end (live scores are derived from events). */
+  my_score: number;
+  opponent_score: number;
+  winner: GameWinner | null;
+  started_at: string;
+  ended_at: string | null;
+}
+
+export interface GameEvent {
+  id: string;
+  game_id: string;
+  user_id: string;
+  /**
+   * Client insertion order, unique per game. The seq space is reserved to
+   * the tracking device (client): it reflects the order events were recorded
+   * locally, not global temporal order. Future server-side writers (e.g.
+   * audio inference) must use a disjoint seq space and rely on `occurred_at`
+   * for temporal interleaving.
+   */
+  seq: number;
+  /** Nullable in SQL for future system/audio events; manual events always set it. */
+  turn_number: number | null;
+  actor: EventActor;
+  event_type: GameEventType | (string & {});
+  battlefield_card_id: string | null;
+  /** Score delta. */
+  points: number;
+  payload: Record<string, unknown>;
+  /** Client wall clock. */
+  occurred_at: string;
+  created_at: string;
+}
+
+/** Match with legends resolved client-side from the cached cards index. */
+export interface MatchWithLegends extends Match {
+  my_legend?: Card | null;
+  opponent_legend?: Card | null;
+}
+
+/** Game merged with its ordered event log. */
+export interface MatchGameWithEvents extends MatchGame {
+  events: GameEvent[];
+}
+
 /** Aggregate stats (future collection_stats view / queries). */
 export interface CollectionStats {
   unique_owned: number;

@@ -9,6 +9,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { setMatchSyncQueryClient } from '@/lib/match-sync';
 import { NAV_THEME } from '@/lib/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -23,6 +24,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Let the match sync layer invalidate match queries after a final flush.
+setMatchSyncQueryClient(queryClient);
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -88,6 +92,8 @@ function RootNavigator() {
         name="card/[id]"
         options={{ title: 'Card Detail', presentation: 'transparentModal', headerShown: true }}
       />
+      <Stack.Screen name="match/new" options={{ title: 'New Match' }} />
+      <Stack.Screen name="match/[id]" options={{ title: 'Match' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
