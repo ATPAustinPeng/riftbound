@@ -12,6 +12,11 @@ Riftbound TCG collection tracker, in three connected parts:
 
 Data flows one way: `scraper.py` → `data/cards.json` → seed script (service-role key) → Supabase → app (anon key). Re-running scraper and seed is idempotent (upserts by card `id`).
 
+## Data sources
+
+- **Game rules**: only from the official Rules Hub (https://playriftbound.com/en-us/rules-hub/) and the 8 documents it links — Core Rules PDF, Tournament Rules PDF, per-set patch notes (currently 3: Origins, Spiritforged, Unleashed), and per-set errata (currently 3). Never from memory or third-party sites. The rules PDFs can be extremely large — fetching them directly may fail or truncate; download to a local file with `curl` first, then read the downloaded copy.
+- **Card data**: only from the official card gallery (https://playriftbound.com/en-us/card-gallery/) — the same source the scraper's API feeds.
+
 ## Commands
 
 ### Scraper (repo root)
@@ -50,17 +55,22 @@ If `npm install` hits a corporate registry / 403, `tracker/.npmrc` pins registry
 
 ## Tracker architecture
 
-- `tracker/app/` — expo-router file-based routes: `(auth)/` (sign in/up), `(tabs)/` (Browse, Collection, Needs, Wishlist, Profile), `card/` (card detail).
+- `tracker/app/` — expo-router file-based routes: `(auth)/` (sign in/up), `(tabs)/` (Browse, Collection, Wishlist, Matches, Profile), `card/` (card detail), `match/` (new-match setup + live match screen).
 - `tracker/lib/` — the shared core:
   - `supabase.ts` — client setup
   - `auth-context.tsx` — session + profile provider
   - `queries.ts` — all TanStack Query hooks (reads and mutations); DB access goes through here, not ad-hoc in components
   - `types.ts` — DB row types
+  - `match-store.ts` / `match-sync.ts` / `score-engine.ts` — local match state, Supabase sync, and scoring rules behind the Matches tab
 - `tracker/components/` — CardGrid, FilterBar, QtyStepper, etc. Styling is NativeWind (Tailwind classes).
+
+### Matches tab (mobile-first)
+
+The Matches tab (route file `tracker/app/(tabs)/scores.tsx`, UI title "Matches") is a live scoring companion for games in progress. It is designed primarily for mobile — the phone's form factor makes it the practical device at a crowded table — so treat iOS as the primary target when designing or changing its UI; web is secondary.
 
 ### Collection-goal domain logic
 
-The core business rules live around the user's collection goal (stored on `profiles`, five modes: `single_separate`, `playset_separate` (default), `playset_normal`, `single_combined`, `playset_combined`). Playset target varies by card type: Battlefield/Legend = 1, Rune = 12, Token = untracked, everything else = 3. Foil copies (`quantity_owned_foil` on `user_cards`) are only tracked for commons/uncommons, and only required by `*_separate` modes. This logic drives the Needs tab, progress bars, and stats RPCs (`supabase/migrations/0002_stats.sql`, `0003_foil.sql`, `0006_playset_foil_goal.sql`) — keep the SQL RPCs and the client-side fallback in `queries.ts` in sync when changing it. Full tables in `tracker/README.md`.
+The core business rules live around the user's collection goal (stored on `profiles`, five modes: `single_separate`, `playset_separate` (default), `playset_normal`, `single_combined`, `playset_combined`). Playset target varies by card type: Battlefield/Legend = 1, Rune = 12, Token = untracked, everything else = 3. Foil copies (`quantity_owned_foil` on `user_cards`) are only tracked for commons/uncommons, and only required by `*_separate` modes. This logic drives the Needs view in the Collection tab, progress bars, and stats RPCs (`supabase/migrations/0002_stats.sql`, `0003_foil.sql`, `0006_playset_foil_goal.sql`) — keep the SQL RPCs and the client-side fallback in `queries.ts` in sync when changing it. Full tables in `tracker/README.md`.
 
 ## Workflow
 
