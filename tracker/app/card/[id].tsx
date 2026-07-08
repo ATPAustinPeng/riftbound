@@ -7,6 +7,7 @@ import { QtyStepper } from '@/components/QtyStepper';
 import { WishlistToggle } from '@/components/WishlistToggle';
 import {
   canBeFoil,
+  collectorNumberDisplay,
   getForSaleCount,
   getOwnedFoilQuantity,
   getOwnedQuantity,
@@ -134,7 +135,7 @@ export default function CardDetailScreen() {
           </View>
           <Text variant="muted" className="mt-1 text-sm">
             {card.set_name ?? card.set_id}
-            {card.collector_number != null ? ` · #${card.collector_number}` : ''}
+            {collectorNumberDisplay(card) != null ? ` · #${collectorNumberDisplay(card)}` : ''}
             {card.public_code ? ` · ${card.public_code}` : ''}
           </Text>
         </View>

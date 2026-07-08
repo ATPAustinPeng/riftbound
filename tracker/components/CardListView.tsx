@@ -13,6 +13,7 @@ import {
 
 import {
   canBeFoil,
+  collectorNumberDisplay,
   DOMAIN_COLORS,
   evaluateGoal,
   type CardsIndex,
@@ -169,6 +170,7 @@ function CardListRow({
   onFoilOwnedChange?: (cardId: string, next: number) => void;
 }) {
   const cardCanFoil = canBeFoil(card);
+  const collectorNumber = collectorNumberDisplay(card);
   const domains = index.domainsByCardId[card.id] ?? [];
   const showControls = quickAdd && (!!onOwnedChange || !!onFoilOwnedChange);
   const evaluation = goal
@@ -209,9 +211,9 @@ function CardListRow({
               })}
             </View>
           ) : null}
-          {card.collector_number ? (
+          {collectorNumber ? (
             <Text className="mt-0.5 text-[10px] text-neutral-400 dark:text-neutral-500">
-              #{card.collector_number}
+              #{collectorNumber}
             </Text>
           ) : null}
         </Pressable>

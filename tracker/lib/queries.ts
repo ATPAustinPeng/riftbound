@@ -577,6 +577,14 @@ function collectorParts(card: Pick<Card, 'public_code' | 'collector_number'>): {
   return { num: Number.isNaN(num) ? Number.POSITIVE_INFINITY : num, suffix: '' };
 }
 
+export function collectorNumberDisplay(
+  card: Pick<Card, 'public_code' | 'collector_number'>,
+): string | null {
+  const m = card.public_code?.match(/-(\d+)([a-zA-Z]*)\//);
+  if (m) return `${parseInt(m[1], 10)}${m[2].toLowerCase()}`;
+  return card.collector_number != null ? String(card.collector_number) : null;
+}
+
 function compareCards(a: Card, b: Card): number {
   const pa = collectorParts(a);
   const pb = collectorParts(b);
