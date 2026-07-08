@@ -184,9 +184,10 @@ function flattenSections(sections: RaritySection[]): {
   return { items, stickyIndices };
 }
 
-function splitIntoColumns<T>(items: T[], count: number): T[][] {
-  const size = Math.ceil(items.length / count);
-  return Array.from({ length: count }, (_, i) => items.slice(i * size, (i + 1) * size));
+function chunkIntoRows<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
 }
 
 function RarityHeader({ label, count }: { label: string; count: number }) {
@@ -586,10 +587,19 @@ export function CardListView({
   }
 
   const renderGroupColumns = (group: DomainGroup) => (
-    <View className="flex-row gap-6">
-      {splitIntoColumns(group.cards, columnCount).map((columnCards, columnIndex) => (
-        <View key={columnIndex} className="flex-1">
-          {columnCards.map((card) => renderCardRow(card, group.singleDomain))}
+    <View>
+      {chunkIntoRows(group.cards, columnCount).map((rowCards, rowIndex) => (
+        <View key={rowIndex} className="flex-row gap-6">
+          {rowCards.map((card) => (
+            <View key={card._listKey ?? card.id} className="flex-1">
+              {renderCardRow(card, group.singleDomain)}
+            </View>
+          ))}
+          {rowCards.length < columnCount
+            ? Array.from({ length: columnCount - rowCards.length }).map((_, padIndex) => (
+                <View key={`pad_${padIndex}`} className="flex-1" />
+              ))
+            : null}
         </View>
       ))}
     </View>
