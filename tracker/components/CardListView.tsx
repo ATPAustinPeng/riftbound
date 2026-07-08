@@ -344,13 +344,6 @@ function CardListRow({
     ? evaluateGoal(goal, owned, foilOwned, cardCanFoil, card.card_type)
     : null;
   const dimmed = dimMissing && owned + foilOwned === 0;
-  const foilMissing =
-    dimMissing &&
-    !dimmed &&
-    cardCanFoil &&
-    evaluation &&
-    evaluation.normalComplete &&
-    !evaluation.foilComplete;
   const showFoilTrack = cardCanFoil && goal !== 'playset_normal';
 
   return (
@@ -387,24 +380,17 @@ function CardListRow({
       </Link>
 
       <View className="items-end gap-1">
-        {foilMissing ? (
-          <View className="rounded-full border border-dashed border-amber-400 px-1.5 py-0.5 opacity-40">
-            <Text className="text-[10px] font-bold leading-none text-amber-500">✦</Text>
-          </View>
-        ) : null}
         {quantityMode === 'owned' ? (
           <>
-            <View className="flex-row items-center gap-1">
-              {owned > 0 ? (
-                <Text className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  ×{owned}
-                </Text>
-              ) : null}
-              {cardCanFoil && foilOwned > 0 ? (
-                <Text className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                  ✦×{foilOwned}
-                </Text>
-              ) : null}
+            {/* Fixed-width slots so counts and controls sit in the same
+                position on every row regardless of what a card has. */}
+            <View className="flex-row items-center">
+              <Text className="w-8 text-right text-xs font-semibold text-blue-600 dark:text-blue-400">
+                {owned > 0 ? `×${owned}` : ''}
+              </Text>
+              <Text className="w-10 text-right text-xs font-semibold text-amber-600 dark:text-amber-400">
+                {cardCanFoil && foilOwned > 0 ? `✦×${foilOwned}` : ''}
+              </Text>
             </View>
             {showControls ? (
               <View className="flex-row items-center gap-2">
@@ -421,8 +407,10 @@ function CardListRow({
                     />
                   </View>
                 ) : null}
-                {cardCanFoil && onFoilOwnedChange ? (
-                  <View className="flex-row items-center gap-0.5">
+                {onFoilOwnedChange ? (
+                  <View
+                    pointerEvents={cardCanFoil ? 'auto' : 'none'}
+                    className={`flex-row items-center gap-0.5 ${cardCanFoil ? '' : 'opacity-0'}`}>
                     <Text className="text-[10px] text-amber-600 dark:text-amber-400">✦</Text>
                     <CompactButton
                       label="−"
