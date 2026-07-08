@@ -381,20 +381,17 @@ function CardListRow({
 
       <View className="items-end gap-1">
         {quantityMode === 'owned' ? (
-          <>
-            {/* Fixed-width slots so counts and controls sit in the same
-                position on every row regardless of what a card has. */}
-            <View className="flex-row items-center">
-              <Text className="w-8 text-right text-xs font-semibold text-blue-600 dark:text-blue-400">
-                {owned > 0 ? `×${owned}` : ''}
-              </Text>
-              <Text className="w-10 text-right text-xs font-semibold text-amber-600 dark:text-amber-400">
-                {cardCanFoil && foilOwned > 0 ? `✦×${foilOwned}` : ''}
-              </Text>
-            </View>
-            {showControls ? (
-              <View className="flex-row items-center gap-2">
-                {onOwnedChange ? (
+          showControls ? (
+            // Two fixed columns (normal, foil) each stacking its count above
+            // its own buttons; counts keep a fixed height when empty and
+            // non-foilable cards render invisible foil controls, so every row
+            // lays out identically.
+            <View className="flex-row items-end gap-2">
+              {onOwnedChange ? (
+                <View className="items-end gap-1">
+                  <Text className="h-4 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                    {owned > 0 ? `×${owned}` : ''}
+                  </Text>
                   <View className="flex-row items-center gap-0.5">
                     <CompactButton
                       label="−"
@@ -406,12 +403,18 @@ function CardListRow({
                       onPress={() => onOwnedChange(card.id, owned + 1)}
                     />
                   </View>
-                ) : null}
-                {onFoilOwnedChange ? (
-                  <View
-                    pointerEvents={cardCanFoil ? 'auto' : 'none'}
-                    className={`flex-row items-center gap-0.5 ${cardCanFoil ? '' : 'opacity-0'}`}>
-                    <Text className="text-[10px] text-amber-600 dark:text-amber-400">✦</Text>
+                </View>
+              ) : null}
+              {onFoilOwnedChange ? (
+                <View
+                  pointerEvents={cardCanFoil ? 'auto' : 'none'}
+                  className={`items-end gap-1 ${cardCanFoil ? '' : 'opacity-0'}`}>
+                  <Text className="h-4 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    {cardCanFoil && foilOwned > 0 ? `✦×${foilOwned}` : ''}
+                  </Text>
+                  <View className="flex-row items-center gap-0.5">
+                    {/* invisible ✦ keeps the gap between the two button pairs */}
+                    <Text className="text-[10px] opacity-0">✦</Text>
                     <CompactButton
                       label="−"
                       disabled={foilOwned <= 0}
@@ -422,10 +425,19 @@ function CardListRow({
                       onPress={() => onFoilOwnedChange(card.id, foilOwned + 1)}
                     />
                   </View>
-                ) : null}
-              </View>
-            ) : null}
-          </>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View className="flex-row items-center">
+              <Text className="h-4 w-8 text-right text-xs font-semibold text-blue-600 dark:text-blue-400">
+                {owned > 0 ? `×${owned}` : ''}
+              </Text>
+              <Text className="h-4 w-10 text-right text-xs font-semibold text-amber-600 dark:text-amber-400">
+                {cardCanFoil && foilOwned > 0 ? `✦×${foilOwned}` : ''}
+              </Text>
+            </View>
+          )
         ) : evaluation?.untracked ? null : evaluation?.combined ? (
           <ProgressRow
             label=""
