@@ -1,13 +1,13 @@
 import { Text, View } from 'react-native';
 
 import { evaluateGoal, type CollectionGoal } from '@/lib/queries';
+import type { Card } from '@/lib/types';
 
 interface PlaysetProgressProps {
   goal: CollectionGoal;
   owned: number;
   foil: number;
-  canFoil: boolean;
-  cardType?: string | null;
+  card: Pick<Card, 'card_type' | 'super_type' | 'rarity_id' | 'public_code'>;
   compact?: boolean;
 }
 
@@ -63,52 +63,25 @@ export function PlaysetProgress({
   goal,
   owned,
   foil,
-  canFoil,
-  cardType,
+  card,
   compact = false,
 }: PlaysetProgressProps) {
-  const evaluation = evaluateGoal(goal, owned, foil, canFoil, cardType);
-
-  if (evaluation.untracked) {
-    return (
-      <Text
-        className={
-          compact
-            ? 'text-xs text-neutral-500 dark:text-neutral-400'
-            : 'text-sm text-neutral-500 dark:text-neutral-400'
-        }>
-        No playset limit
-      </Text>
-    );
-  }
-
-  if (evaluation.combined) {
-    const total = owned + foil;
-    return (
-      <ProgressBar
-        label="Goal"
-        current={total}
-        target={evaluation.target}
-        complete={evaluation.complete}
-        compact={compact}
-      />
-    );
-  }
+  const evaluation = evaluateGoal(goal, owned, foil, card);
 
   return (
     <View className={compact ? 'gap-1.5' : 'gap-2'}>
       <ProgressBar
-        label="Normal"
+        label="Nonfoil"
         current={owned}
         target={evaluation.target}
         complete={evaluation.normalComplete}
         compact={compact}
       />
-      {canFoil && goal !== 'playset_normal' ? (
+      {evaluation.foilTarget > 0 ? (
         <ProgressBar
           label="Foil"
           current={foil}
-          target={evaluation.target}
+          target={evaluation.foilTarget}
           complete={evaluation.foilComplete}
           compact={compact}
         />

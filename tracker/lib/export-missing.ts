@@ -1,7 +1,7 @@
 import {
-  canBeFoil,
+  compareCards,
+  compareSetIds,
   evaluateGoal,
-  SET_ORDER,
   type CardsIndex,
   type CollectionGoal,
 } from '@/lib/queries';
@@ -23,32 +23,6 @@ export interface MissingCardRow {
   foilNeeded: number | '';
 }
 
-function collectorParts(card: Pick<Card, 'public_code' | 'collector_number'>): {
-  num: number;
-  suffix: string;
-} {
-  const m = card.public_code?.match(/-(\d+)([a-zA-Z]*)\//);
-  if (m) return { num: parseInt(m[1], 10), suffix: m[2].toLowerCase() };
-  const num = Number(card.collector_number);
-  return { num: Number.isNaN(num) ? Number.POSITIVE_INFINITY : num, suffix: '' };
-}
-
-function compareSetIds(a: string, b: string): number {
-  const orderA = SET_ORDER[a];
-  const orderB = SET_ORDER[b];
-  if (orderA !== undefined && orderB !== undefined) return orderA - orderB;
-  if (orderA !== undefined) return -1;
-  if (orderB !== undefined) return 1;
-  return a.localeCompare(b);
-}
-
-function compareCollectorNumber(a: Card, b: Card): number {
-  const pa = collectorParts(a);
-  const pb = collectorParts(b);
-  if (pa.num !== pb.num) return pa.num - pb.num;
-  return pa.suffix.localeCompare(pb.suffix);
-}
-
 function compareRarity(a: Card, b: Card): number {
   const orderA = a.rarity_id != null ? (RARITY_ORDER[a.rarity_id] ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
   const orderB = b.rarity_id != null ? (RARITY_ORDER[b.rarity_id] ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
@@ -60,32 +34,7 @@ function sortMissingCards(a: Card, b: Card): number {
   if (setCmp !== 0) return setCmp;
   const rarityCmp = compareRarity(a, b);
   if (rarityCmp !== 0) return rarityCmp;
-  return compareCollectorNumber(a, b);
-}
-
-function computeNeeded(
-  goal: CollectionGoal,
-  target: number,
-  owned: number,
-  foil: number,
-  cardCanBeFoil: boolean,
-): { needed: number; foilNeeded: number | '' } {
-  if (goal.endsWith('combined')) {
-    return { needed: Math.max(target - (owned + foil), 0), foilNeeded: '' };
-  }
-  if (goal === 'playset_normal') {
-    return { needed: Math.max(target - owned, 0), foilNeeded: '' };
-  }
-  if (goal === 'playset_foil') {
-    if (cardCanBeFoil) {
-      return { needed: 0, foilNeeded: Math.max(target - foil, 0) };
-    }
-    return { needed: Math.max(target - owned, 0), foilNeeded: '' };
-  }
-  return {
-    needed: Math.max(target - owned, 0),
-    foilNeeded: cardCanBeFoil ? Math.max(target - foil, 0) : '',
-  };
+  return compareCards(a, b);
 }
 
 function rowForCard(
@@ -96,18 +45,13 @@ function rowForCard(
 ): MissingCardRow | null {
   const owned = ownedByCardId[card.id] ?? 0;
   const foilOwned = foilOwnedByCardId[card.id] ?? 0;
-  const cardCanBeFoil = canBeFoil(card);
-  const evaluation = evaluateGoal(goal, owned, foilOwned, cardCanBeFoil, card.card_type);
+  const evaluation = evaluateGoal(goal, owned, foilOwned, card);
 
-  if (evaluation.untracked || evaluation.complete) return null;
+  if (evaluation.complete) return null;
 
-  const { needed, foilNeeded } = computeNeeded(
-    goal,
-    evaluation.target,
-    owned,
-    foilOwned,
-    cardCanBeFoil,
-  );
+  const needed = Math.max(evaluation.target - owned, 0);
+  const foilNeeded: number | '' =
+    evaluation.foilTarget > 0 ? Math.max(evaluation.foilTarget - foilOwned, 0) : '';
 
   const hasFoilNeed = typeof foilNeeded === 'number' && foilNeeded > 0;
   if (needed <= 0 && !hasFoilNeed) return null;

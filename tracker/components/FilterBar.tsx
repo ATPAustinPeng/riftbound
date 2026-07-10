@@ -171,22 +171,6 @@ export function FilterBar({
           </View>
         ) : null}
         <View className="flex-row flex-wrap items-center gap-2">
-          <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Sort</Text>
-          <FilterChip
-            label="By Set"
-            active={filters.sortBy === 'set'}
-            onPress={() => onChange({ ...filters, sortBy: 'set' })}
-          />
-          <FilterChip
-            label="By Color"
-            active={filters.sortBy === 'color'}
-            onPress={() => onChange({ ...filters, sortBy: 'color' })}
-          />
-          <FilterChip
-            label="By Name"
-            active={filters.sortBy === 'name'}
-            onPress={() => onChange({ ...filters, sortBy: 'name' })}
-          />
           <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">View</Text>
           <FilterChip
             label="Grid"
@@ -227,7 +211,6 @@ export function FilterBar({
               onChange({
                 ...defaultCardFilters,
                 search: filters.search,
-                sortBy: filters.sortBy,
                 setId: filters.setId,
               })
             }

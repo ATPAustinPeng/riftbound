@@ -175,13 +175,7 @@ export default function CardDetailScreen() {
             <CardTitle className="text-sm">Your collection</CardTitle>
           </CardHeader>
           <CardContent className="gap-4 p-0">
-            <PlaysetProgress
-              goal={goal}
-              owned={owned}
-              foil={foilOwned}
-              canFoil={cardCanFoil}
-              cardType={card.card_type}
-            />
+            <PlaysetProgress goal={goal} owned={owned} foil={foilOwned} card={card} />
             {cardCanFoil && combinedOwned > 0 ? (
               <Text variant="muted" className="text-xs">
                 {owned} normal{owned === 1 ? '' : 's'}

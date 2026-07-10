@@ -14,7 +14,6 @@ import {
   rowsToCsv,
 } from '@/lib/export-missing';
 import {
-  canBeFoil,
   evaluateGoal,
   filterCards,
   useCollectionGoal,
@@ -82,8 +81,6 @@ export function CardBrowser({
     setViewMode,
     collectionView,
     setCollectionView,
-    groupBySet,
-    setGroupBySet,
     hideComplete,
     setHideComplete,
   } = useBrowserState();
@@ -101,7 +98,7 @@ export function CardBrowser({
     return filteredBySearch.filter((card) => {
       const owned = ownedByCardId[card.id] ?? 0;
       const foil = foilOwnedByCardId[card.id] ?? 0;
-      const evaluation = evaluateGoal(goal, owned, foil, canBeFoil(card), card.card_type);
+      const evaluation = evaluateGoal(goal, owned, foil, card);
 
       if (collectionView === 'owned') {
         return owned + foil > 0;
@@ -142,8 +139,6 @@ export function CardBrowser({
     : listQuantityMode;
 
   const dimMissing = showCollectionControls && collectionView === 'all';
-  const effectiveGroupBySet =
-    showCollectionControls && (collectionView === 'all' || groupBySet);
 
   const collectionControls = showCollectionControls ? (
     <View className="gap-2 px-4 pb-2">
@@ -178,22 +173,6 @@ export function CardBrowser({
               Hide complete
             </Text>
           </View>
-        ) : null}
-        {collectionView !== 'all' ? (
-          <Pressable
-            onPress={() => setGroupBySet(!groupBySet)}
-            className={`rounded-full border px-3 py-1.5 ${
-              groupBySet
-                ? 'border-blue-600 bg-blue-600 active:bg-blue-700'
-                : 'border-neutral-300 bg-white active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:active:bg-neutral-800'
-            }`}>
-            <Text
-              className={`text-xs font-medium ${
-                groupBySet ? 'text-white' : 'text-neutral-700 dark:text-neutral-300'
-              }`}>
-              Group by set
-            </Text>
-          </Pressable>
         ) : null}
         <Pressable
           onPress={() => setExportModalVisible(true)}
@@ -270,16 +249,15 @@ export function CardBrowser({
   return (
     <CardGrid
       cards={filteredCards}
+      index={index}
       numColumns={numColumns}
       ownedByCardId={ownedByCardId}
       foilOwnedByCardId={foilOwnedByCardId}
       forSaleByCardId={forSaleByCardId}
       wishlistedIds={wishlistedIds}
       quickAdd={quickAdd}
-      groupBySet={effectiveGroupBySet}
       dimMissing={dimMissing}
       goal={goal}
-      setsMeta={index.sets}
       onOwnedChange={onOwnedChange}
       onFoilOwnedChange={onFoilOwnedChange}
       onForSaleChange={onForSaleChange}

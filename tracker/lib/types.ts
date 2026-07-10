@@ -1,24 +1,11 @@
 /** Database row types mirroring supabase/migrations/0001_init.sql */
 
-export type CollectionGoal =
-  | 'single_separate'
-  | 'playset_separate'
-  | 'playset_normal'
-  | 'playset_foil'
-  | 'single_combined'
-  | 'playset_combined';
+export type CollectionGoal = 'master' | 'playset_nonfoil' | 'playset_all';
 
-export const DEFAULT_COLLECTION_GOAL: CollectionGoal = 'playset_separate';
+export const DEFAULT_COLLECTION_GOAL: CollectionGoal = 'playset_all';
 
 export function isValidCollectionGoal(value: unknown): value is CollectionGoal {
-  return (
-    value === 'single_separate' ||
-    value === 'playset_separate' ||
-    value === 'playset_normal' ||
-    value === 'playset_foil' ||
-    value === 'single_combined' ||
-    value === 'playset_combined'
-  );
+  return value === 'master' || value === 'playset_nonfoil' || value === 'playset_all';
 }
 
 export interface Set {

@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,25 +13,40 @@ import {
 } from 'react-native';
 
 import { CardTile } from '@/components/CardTile';
-import { canBeFoil, evaluateGoal, SET_ORDER, type CollectionGoal } from '@/lib/queries';
+import {
+  DomainBandHeader,
+  SetHeader,
+  WEB_STICKY_BAND_BELOW_SET,
+  WEB_STICKY_BAND_TOP,
+  WEB_STICKY_SET,
+} from '@/components/section-headers';
+import { buildSetSections } from '@/lib/card-sections';
+import {
+  evaluateGoal,
+  type CardsIndex,
+  type CollectionGoal,
+  type FilteredCard,
+} from '@/lib/queries';
 import type { Card } from '@/lib/types';
 
 const GRID_GAP = 8;
 const HORIZONTAL_PADDING = 16;
 
-type GridItem =
+type GridFlatItem =
+  | { type: 'set'; key: string; label: string; count: number; owned?: number }
   | {
-      type: 'header';
-      setId: string;
-      setLabel: string;
-      owned: number;
-      total: number;
-      pct: number;
+      type: 'band';
+      key: string;
+      label: string;
+      dot?: string;
+      count: number;
+      setLabel?: string;
     }
-  | { type: 'row'; cards: Array<Card & { _listKey?: string }>; rowIndex: number; setId: string };
+  | { type: 'row'; key: string; cards: FilteredCard[] };
 
 interface CardGridProps {
-  cards: Array<Card & { _listKey?: string }>;
+  cards: FilteredCard[];
+  index: CardsIndex;
   numColumns?: number;
   ownedByCardId?: Record<string, number>;
   foilOwnedByCardId?: Record<string, number>;
@@ -38,10 +54,8 @@ interface CardGridProps {
   wishlistedIds?: Set<string>;
   showSteppers?: boolean;
   quickAdd?: boolean;
-  groupBySet?: boolean;
   dimMissing?: boolean;
   goal?: CollectionGoal;
-  setsMeta?: Array<{ id: string; label: string }>;
   onOwnedChange?: (cardId: string, next: number) => void;
   onFoilOwnedChange?: (cardId: string, next: number) => void;
   onForSaleChange?: (cardId: string, next: number) => void;
@@ -54,32 +68,10 @@ interface CardGridProps {
   ListHeaderComponent?: ReactElement | null;
 }
 
-function SetSectionHeader({
-  setLabel,
-  owned,
-  total,
-  pct,
-}: {
-  setLabel: string;
-  owned: number;
-  total: number;
-  pct: number;
-}) {
-  return (
-    <View className="gap-1 border-b border-neutral-100 bg-white pb-2 pt-4 dark:border-neutral-900 dark:bg-neutral-950">
-      <View className="flex-row items-center justify-between">
-        <Text className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
-          {setLabel}
-        </Text>
-        <Text className="text-xs font-medium text-neutral-500">
-          {owned}/{total} ({pct}%)
-        </Text>
-      </View>
-      <View className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-        <View className="h-full rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
-      </View>
-    </View>
-  );
+function chunkRows<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
 }
 
 function computeTileDimming(
@@ -92,16 +84,16 @@ function computeTileDimming(
   if (!dimMissing || !goal) {
     return { dimmed: false, foilMissing: false };
   }
-  const cardCanFoil = canBeFoil(card);
-  const evaluation = evaluateGoal(goal, owned, foil, cardCanFoil, card.card_type);
+  const evaluation = evaluateGoal(goal, owned, foil, card);
   const dimmed = owned + foil === 0;
   const foilMissing =
-    !dimmed && cardCanFoil && evaluation.normalComplete && !evaluation.foilComplete;
+    !dimmed && evaluation.foilTarget > 0 && evaluation.normalComplete && !evaluation.foilComplete;
   return { dimmed, foilMissing };
 }
 
 export function CardGrid({
   cards,
+  index,
   numColumns = 3,
   ownedByCardId,
   foilOwnedByCardId,
@@ -109,10 +101,8 @@ export function CardGrid({
   wishlistedIds,
   showSteppers = false,
   quickAdd = false,
-  groupBySet = false,
   dimMissing = false,
   goal,
-  setsMeta,
   onOwnedChange,
   onFoilOwnedChange,
   onForSaleChange,
@@ -128,59 +118,60 @@ export function CardGrid({
   const tileWidth =
     (width - HORIZONTAL_PADDING * 2 - GRID_GAP * (numColumns - 1)) / numColumns;
 
-  const setLabelById = useMemo(
-    () => new Map(setsMeta?.map((s) => [s.id, s.label]) ?? []),
-    [setsMeta],
-  );
-
-  const gridItems = useMemo((): GridItem[] => {
-    if (!groupBySet) return [];
-
-    const bySet = new Map<string, Array<Card & { _listKey?: string }>>();
-    for (const card of cards) {
-      const setId = card.set_id;
-      const group = bySet.get(setId);
-      if (group) {
-        group.push(card);
-      } else {
-        bySet.set(setId, [card]);
+  const sections = useMemo(() => buildSetSections(cards, index), [cards, index]);
+  const showSetHeaders = sections.length > 1;
+  const ownedBySet = useMemo(() => {
+    if (!ownedByCardId && !foilOwnedByCardId) return undefined;
+    const map: Record<string, number> = {};
+    for (const section of sections) {
+      let owned = 0;
+      for (const band of section.bands) {
+        for (const card of band.cards) {
+          if ((ownedByCardId?.[card.id] ?? 0) + (foilOwnedByCardId?.[card.id] ?? 0) > 0) owned++;
+        }
       }
+      map[section.setId] = owned;
     }
+    return map;
+  }, [sections, ownedByCardId, foilOwnedByCardId]);
 
-    const setIds = [...bySet.keys()].sort(
-      (a, b) => (SET_ORDER[a] ?? 999) - (SET_ORDER[b] ?? 999),
-    );
-
-    const items: GridItem[] = [];
-    for (const setId of setIds) {
-      const setCards = bySet.get(setId) ?? [];
-      const owned = setCards.filter(
-        (c) => (ownedByCardId?.[c.id] ?? 0) + (foilOwnedByCardId?.[c.id] ?? 0) > 0,
-      ).length;
-      const total = setCards.length;
-      const pct = total > 0 ? Math.round((owned / total) * 100) : 0;
-      items.push({
-        type: 'header',
-        setId,
-        setLabel: setLabelById.get(setId) ?? setId,
-        owned,
-        total,
-        pct,
-      });
-
-      for (let i = 0; i < setCards.length; i += numColumns) {
+  const flat = useMemo(() => {
+    const items: GridFlatItem[] = [];
+    const stickyIndices: number[] = [];
+    for (const section of sections) {
+      if (showSetHeaders) {
+        stickyIndices.push(items.length);
         items.push({
-          type: 'row',
-          setId,
-          rowIndex: i / numColumns,
-          cards: setCards.slice(i, i + numColumns),
+          type: 'set',
+          key: `set_${section.setId}`,
+          label: section.setLabel,
+          count: section.count,
+          owned: ownedBySet?.[section.setId],
+        });
+      }
+      for (const band of section.bands) {
+        stickyIndices.push(items.length);
+        items.push({
+          type: 'band',
+          key: `band_${section.setId}_${band.key}`,
+          label: band.label,
+          dot: band.dot,
+          count: band.cards.length,
+          setLabel: showSetHeaders ? section.setLabel : undefined,
+        });
+        chunkRows(band.cards, numColumns).forEach((rowCards, i) => {
+          items.push({
+            type: 'row',
+            key: `row_${section.setId}_${band.key}_${i}`,
+            cards: rowCards,
+          });
         });
       }
     }
-    return items;
-  }, [cards, groupBySet, numColumns, ownedByCardId, foilOwnedByCardId, setLabelById]);
+    return { items, stickyIndices };
+  }, [sections, showSetHeaders, ownedBySet, numColumns]);
 
-  const renderTile = (item: Card & { _listKey?: string }) => {
+  const renderTile = (item: FilteredCard) => {
     const owned = ownedByCardId?.[item.id] ?? 0;
     const foil = foilOwnedByCardId?.[item.id] ?? 0;
     const { dimmed, foilMissing } = computeTileDimming(item, owned, foil, dimMissing, goal);
@@ -210,6 +201,21 @@ export function CardGrid({
     );
   };
 
+  const renderRow = (rowCards: FilteredCard[]) => (
+    <View className="flex-row" style={{ marginBottom: GRID_GAP }}>
+      {rowCards.map((card, i) => (
+        <View
+          key={card._listKey ?? card.id}
+          style={{
+            width: tileWidth,
+            marginRight: i === rowCards.length - 1 ? 0 : GRID_GAP,
+          }}>
+          {renderTile(card)}
+        </View>
+      ))}
+    </View>
+  );
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-neutral-950">
@@ -234,94 +240,88 @@ export function CardGrid({
     );
   }
 
-  if (groupBySet) {
-    const content: ReactNode[] = [];
-    const stickyHeaderIndices: number[] = [];
+  const emptyGrid = (
+    <View className="items-center py-12">
+      <Text className="text-center text-neutral-500">{emptyMessage}</Text>
+    </View>
+  );
 
-    if (ListHeaderComponent) {
-      content.push(<View key="__list-header">{ListHeaderComponent}</View>);
-    }
+  const refreshControl = onRefresh ? (
+    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+  ) : undefined;
 
-    if (gridItems.length === 0) {
-      content.push(
-        <View key="__empty" className="items-center py-12">
-          <Text className="text-center text-neutral-500">{emptyMessage}</Text>
-        </View>,
-      );
-    }
-
-    for (const item of gridItems) {
-      if (item.type === 'header') {
-        stickyHeaderIndices.push(content.length);
-        content.push(
-          <SetSectionHeader
-            key={`header-${item.setId}`}
-            setLabel={item.setLabel}
-            owned={item.owned}
-            total={item.total}
-            pct={item.pct}
-          />,
-        );
-      } else {
-        content.push(
-          <View
-            key={`row-${item.setId}-${item.rowIndex}`}
-            className="flex-row"
-            style={{ marginBottom: GRID_GAP }}>
-            {item.cards.map((card, index) => (
-              <View
-                key={card._listKey ?? card.id}
-                style={{
-                  width: tileWidth,
-                  marginRight: index === item.cards.length - 1 ? 0 : GRID_GAP,
-                }}>
-                {renderTile(card)}
-              </View>
-            ))}
-          </View>,
-        );
-      }
-    }
-
+  if (Platform.OS === 'web') {
+    // Scoped CSS sticky: set headers pin at the top, band headers pin just
+    // below, and the next section pushes them out.
+    const stickyBand = showSetHeaders ? WEB_STICKY_BAND_BELOW_SET : WEB_STICKY_BAND_TOP;
     return (
       <View className="flex-1 bg-white dark:bg-neutral-950">
         <ScrollView
-          stickyHeaderIndices={stickyHeaderIndices}
+          className="flex-1"
           contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
-          refreshControl={
-            onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined
-          }>
-          {content}
+          refreshControl={refreshControl}>
+          {ListHeaderComponent}
+          {sections.length === 0 ? emptyGrid : null}
+          {sections.map((section) => (
+            <View key={section.setId}>
+              {showSetHeaders ? (
+                <View style={WEB_STICKY_SET}>
+                  <SetHeader
+                    label={section.setLabel}
+                    count={section.count}
+                    owned={ownedBySet?.[section.setId]}
+                  />
+                </View>
+              ) : null}
+              {section.bands.map((band) => (
+                <View key={band.key}>
+                  <View style={stickyBand}>
+                    <DomainBandHeader label={band.label} dot={band.dot} count={band.cards.length} />
+                  </View>
+                  <View style={{ marginTop: GRID_GAP }}>
+                    {chunkRows(band.cards, numColumns).map((rowCards, i) => (
+                      <View key={`${section.setId}_${band.key}_${i}`}>{renderRow(rowCards)}</View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))}
         </ScrollView>
       </View>
     );
   }
 
+  const renderFlatItem = (item: GridFlatItem): ReactNode => {
+    if (item.type === 'set') {
+      return <SetHeader label={item.label} count={item.count} owned={item.owned} />;
+    }
+    if (item.type === 'band') {
+      return (
+        <DomainBandHeader
+          label={item.label}
+          dot={item.dot}
+          count={item.count}
+          setLabel={item.setLabel}
+        />
+      );
+    }
+    return renderRow(item.cards);
+  };
+
   return (
     <View className="flex-1 bg-white dark:bg-neutral-950">
       <FlashList
-        data={cards}
-        numColumns={numColumns}
-        keyExtractor={(item: Card & { _listKey?: string }) => item._listKey ?? item.id}
+        data={flat.items}
+        keyExtractor={(item) => item.key}
+        getItemType={(item) => item.type}
+        stickyHeaderIndices={flat.stickyIndices}
         contentContainerStyle={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 24 }}
         ListHeaderComponent={ListHeaderComponent ?? undefined}
-        ListEmptyComponent={
-          <View className="items-center py-12">
-            <Text className="text-center text-neutral-500">{emptyMessage}</Text>
-          </View>
-        }
+        ListEmptyComponent={emptyGrid}
         onRefresh={onRefresh}
         refreshing={onRefresh ? isRefreshing : undefined}
-        renderItem={({ item, index }) => (
-          <View
-            style={{
-              width: tileWidth,
-              marginRight: index % numColumns === numColumns - 1 ? 0 : GRID_GAP,
-              marginBottom: GRID_GAP,
-            }}>
-            {renderTile(item)}
-          </View>
-        )}
+        renderItem={({ item }) => <>{renderFlatItem(item)}</>}
       />
     </View>
   );

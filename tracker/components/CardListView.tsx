@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { Link } from 'expo-router';
-import { useMemo, type ReactElement } from 'react';
+import { memo, useMemo, type ReactElement } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -10,13 +10,24 @@ import {
   Text,
   useWindowDimensions,
   View,
-  type ViewStyle,
 } from 'react-native';
 
 import {
+  DomainBandHeader,
+  SetHeader,
+  WEB_STICKY_BAND_BELOW_SET,
+  WEB_STICKY_BAND_TOP,
+  WEB_STICKY_SET,
+} from '@/components/section-headers';
+import {
+  buildSetSections,
+  RARITY_BUCKETS,
+  type DomainBand,
+  type SetSection,
+} from '@/lib/card-sections';
+import {
   canBeFoil,
   collectorNumberDisplay,
-  DOMAIN_COLOR_ORDER,
   DOMAIN_COLORS,
   evaluateGoal,
   type CardsIndex,
@@ -26,158 +37,77 @@ import {
 
 const HORIZONTAL_PADDING = 16;
 
-// Fixed so web domain headers know where to stick below the rarity header.
-const RARITY_HEADER_HEIGHT = 52;
-
-// react-native-web supports position: 'sticky' but RN's style types don't include it.
-const WEB_STICKY_RARITY = { position: 'sticky', top: 0, zIndex: 20 } as unknown as ViewStyle;
-const WEB_STICKY_DOMAIN = {
-  position: 'sticky',
-  top: RARITY_HEADER_HEIGHT,
-  zIndex: 10,
-} as unknown as ViewStyle;
-
-type RarityBucket = 'common' | 'uncommon' | 'rare' | 'epicPlus';
-
-interface RarityBuckets {
-  common: FilteredCard[];
-  uncommon: FilteredCard[];
-  rare: FilteredCard[];
-  epicPlus: FilteredCard[];
-}
-
-const RARITY_SECTIONS: Array<{ bucket: RarityBucket; label: string }> = [
-  { bucket: 'common', label: 'Common' },
-  { bucket: 'uncommon', label: 'Uncommon' },
-  { bucket: 'rare', label: 'Rare' },
-  { bucket: 'epicPlus', label: 'Epic+' },
-];
-
-interface DomainGroup {
-  key: string;
-  label: string;
-  dot?: string;
-  singleDomain: boolean;
-  cards: FilteredCard[];
-}
-
-interface RaritySection {
-  bucket: RarityBucket;
-  label: string;
-  count: number;
-  groups: DomainGroup[];
-}
-
 type ListItem =
-  | { type: 'rarity'; key: string; label: string; count: number }
+  | { type: 'set'; key: string; label: string; count: number; owned?: number }
   | {
       type: 'domain';
       key: string;
       label: string;
       dot?: string;
       count: number;
-      rarityLabel: string;
+      setLabel?: string;
+    }
+  | {
+      type: 'rarity';
+      key: string;
+      label: string;
+      count: number;
+      domainLabel: string;
+      dot?: string;
     }
   | { type: 'card'; key: string; card: FilteredCard; hideDomains: boolean };
 
-function partitionByRarity(cards: FilteredCard[]): RarityBuckets {
-  const buckets: RarityBuckets = { common: [], uncommon: [], rare: [], epicPlus: [] };
-  for (const card of cards) {
-    if (card.rarity_id === 'common') buckets.common.push(card);
-    else if (card.rarity_id === 'uncommon') buckets.uncommon.push(card);
-    else if (card.rarity_id === 'rare') buckets.rare.push(card);
-    else buckets.epicPlus.push(card);
-  }
-  return buckets;
-}
-
-function groupByDomain(cards: FilteredCard[], index: CardsIndex): DomainGroup[] {
-  const byKey = new Map<string, FilteredCard[]>();
-  for (const card of cards) {
-    const ids = Array.from(
-      new Set((index.domainsByCardId[card.id] ?? []).map((d) => d.domain_id)),
-    );
-    const key = ids.length === 0 ? 'none' : ids.length > 1 ? 'multi' : ids[0];
-    const list = byKey.get(key);
-    if (list) list.push(card);
-    else byKey.set(key, [card]);
-  }
-
-  const groups: DomainGroup[] = [];
-  const singleIds = Object.keys(DOMAIN_COLOR_ORDER).sort(
-    (a, b) => DOMAIN_COLOR_ORDER[a] - DOMAIN_COLOR_ORDER[b],
-  );
-  for (const id of singleIds) {
-    const groupCards = byKey.get(id);
-    if (!groupCards) continue;
-    byKey.delete(id);
-    groups.push({
-      key: id,
-      label: DOMAIN_COLORS[id]?.label ?? id,
-      dot: DOMAIN_COLORS[id]?.dot,
-      singleDomain: true,
-      cards: groupCards,
-    });
-  }
-  const multi = byKey.get('multi');
-  const none = byKey.get('none');
-  byKey.delete('multi');
-  byKey.delete('none');
-  for (const [id, groupCards] of byKey) {
-    groups.push({ key: id, label: id, singleDomain: true, cards: groupCards });
-  }
-  if (multi) groups.push({ key: 'multi', label: 'Multi-Domain', singleDomain: false, cards: multi });
-  if (none) groups.push({ key: 'none', label: 'No Domain', singleDomain: false, cards: none });
-  return groups;
-}
-
-function buildSections(cards: FilteredCard[], index: CardsIndex): RaritySection[] {
-  const buckets = partitionByRarity(cards);
-  const sections: RaritySection[] = [];
-  for (const { bucket, label } of RARITY_SECTIONS) {
-    const bucketCards = buckets[bucket];
-    if (bucketCards.length === 0) continue;
-    sections.push({
-      bucket,
-      label,
-      count: bucketCards.length,
-      groups: groupByDomain(bucketCards, index),
-    });
-  }
-  return sections;
-}
-
-function flattenSections(sections: RaritySection[]): {
+function flattenSections(
+  sections: SetSection[],
+  showSetHeaders: boolean,
+  ownedBySet?: Record<string, number>,
+): {
   items: ListItem[];
   stickyIndices: number[];
 } {
   const items: ListItem[] = [];
   const stickyIndices: number[] = [];
   for (const section of sections) {
-    stickyIndices.push(items.length);
-    items.push({
-      type: 'rarity',
-      key: `rarity_${section.bucket}`,
-      label: section.label,
-      count: section.count,
-    });
-    for (const group of section.groups) {
+    if (showSetHeaders) {
+      stickyIndices.push(items.length);
+      items.push({
+        type: 'set',
+        key: `set_${section.setId}`,
+        label: section.setLabel,
+        count: section.count,
+        owned: ownedBySet?.[section.setId],
+      });
+    }
+    for (const band of section.bands) {
       stickyIndices.push(items.length);
       items.push({
         type: 'domain',
-        key: `domain_${section.bucket}_${group.key}`,
-        label: group.label,
-        dot: group.dot,
-        count: group.cards.length,
-        rarityLabel: section.label,
+        key: `domain_${section.setId}_${band.key}`,
+        label: band.label,
+        dot: band.dot,
+        count: band.cards.length,
+        setLabel: showSetHeaders ? section.setLabel : undefined,
       });
-      for (const card of group.cards) {
+      for (const { bucket, label } of RARITY_BUCKETS) {
+        const bucketCards = band.byRarity[bucket];
+        if (bucketCards.length === 0) continue;
+        stickyIndices.push(items.length);
         items.push({
-          type: 'card',
-          key: card._listKey ?? card.id,
-          card,
-          hideDomains: group.singleDomain,
+          type: 'rarity',
+          key: `rarity_${section.setId}_${band.key}_${bucket}`,
+          label,
+          count: bucketCards.length,
+          domainLabel: band.label,
+          dot: band.dot,
         });
+        for (const card of bucketCards) {
+          items.push({
+            type: 'card',
+            key: card._listKey ?? card.id,
+            card,
+            hideDomains: band.singleDomain,
+          });
+        }
       }
     }
   }
@@ -190,36 +120,35 @@ function chunkIntoRows<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
-function RarityHeader({ label, count }: { label: string; count: number }) {
+function RarityColumnHeader({ label, count }: { label: string; count: number }) {
   return (
     <View
-      style={{ height: RARITY_HEADER_HEIGHT }}
-      className="flex-row items-end gap-2 border-b border-neutral-200 bg-white pb-2 dark:border-neutral-800 dark:bg-neutral-950">
-      <Text className="text-base font-bold text-neutral-900 dark:text-white">{label}</Text>
-      <Text className="pb-0.5 text-xs text-neutral-400 dark:text-neutral-500">{count}</Text>
+      className={`flex-row items-center gap-1.5 bg-white pb-1 pt-3 dark:bg-neutral-950 ${count === 0 ? 'opacity-40' : ''}`}>
+      <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+        {label}
+      </Text>
+      <Text className="text-xs text-neutral-400 dark:text-neutral-500">· {count}</Text>
     </View>
   );
 }
 
-function DomainHeader({
+function RaritySubheader({
   label,
-  dot,
   count,
-  rarityLabel,
+  domainLabel,
+  dot,
 }: {
   label: string;
-  dot?: string;
   count: number;
-  rarityLabel?: string;
+  domainLabel: string;
+  dot?: string;
 }) {
   return (
     <View className="flex-row items-center gap-1.5 bg-white pb-1 pt-3 dark:bg-neutral-950">
-      {rarityLabel ? (
-        <Text className="text-xs font-medium uppercase tracking-wide text-neutral-300 dark:text-neutral-600">
-          {rarityLabel} /
-        </Text>
-      ) : null}
       {dot ? <View className={`h-2.5 w-2.5 rounded-full ${dot}`} /> : null}
+      <Text className="text-xs font-medium uppercase tracking-wide text-neutral-300 dark:text-neutral-600">
+        {domainLabel} /
+      </Text>
       <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
         {label}
       </Text>
@@ -311,7 +240,7 @@ function ProgressRow({
   );
 }
 
-function CardListRow({
+const CardListRow = memo(function CardListRow({
   card,
   index,
   owned,
@@ -340,11 +269,9 @@ function CardListRow({
   const collectorNumber = collectorNumberDisplay(card);
   const domains = index.domainsByCardId[card.id] ?? [];
   const showControls = quickAdd && (!!onOwnedChange || !!onFoilOwnedChange);
-  const evaluation = goal
-    ? evaluateGoal(goal, owned, foilOwned, cardCanFoil, card.card_type)
-    : null;
+  const evaluation = goal ? evaluateGoal(goal, owned, foilOwned, card) : null;
   const dimmed = dimMissing && owned + foilOwned === 0;
-  const showFoilTrack = cardCanFoil && goal !== 'playset_normal';
+  const showFoilTrack = evaluation ? evaluation.foilTarget > 0 : cardCanFoil;
 
   return (
     <View className="flex-row items-center gap-2 border-b border-neutral-100 py-2.5 dark:border-neutral-900">
@@ -438,21 +365,6 @@ function CardListRow({
               </Text>
             </View>
           )
-        ) : evaluation?.untracked ? null : evaluation?.combined ? (
-          <ProgressRow
-            label=""
-            owned={owned + foilOwned}
-            target={evaluation.target}
-            showControls={!!(showControls && onOwnedChange)}
-            onDecrement={() => {
-              if (foilOwned > 0) {
-                onFoilOwnedChange?.(card.id, foilOwned - 1);
-              } else {
-                onOwnedChange?.(card.id, owned - 1);
-              }
-            }}
-            onIncrement={() => onOwnedChange?.(card.id, owned + 1)}
-          />
         ) : (
           <>
             <ProgressRow
@@ -467,7 +379,7 @@ function CardListRow({
               <ProgressRow
                 label="✦"
                 owned={foilOwned}
-                target={evaluation?.target ?? 3}
+                target={evaluation?.foilTarget ?? 3}
                 showControls={!!(showControls && onFoilOwnedChange)}
                 onDecrement={() => onFoilOwnedChange?.(card.id, foilOwned - 1)}
                 onIncrement={() => onFoilOwnedChange?.(card.id, foilOwned + 1)}
@@ -478,7 +390,7 @@ function CardListRow({
       </View>
     </View>
   );
-}
+});
 
 export function CardListView({
   cards,
@@ -500,10 +412,29 @@ export function CardListView({
   dimMissing = false,
 }: CardListViewProps) {
   const { width } = useWindowDimensions();
-  const sections = useMemo(() => buildSections(cards, index), [cards, index]);
-  const flat = useMemo(() => flattenSections(sections), [sections]);
+  const sections = useMemo(() => buildSetSections(cards, index), [cards, index]);
+  const showSetHeaders = sections.length > 1;
+  const ownedBySet = useMemo(() => {
+    if (!ownedByCardId && !foilOwnedByCardId) return undefined;
+    const map: Record<string, number> = {};
+    for (const section of sections) {
+      let owned = 0;
+      for (const band of section.bands) {
+        for (const card of band.cards) {
+          if ((ownedByCardId?.[card.id] ?? 0) + (foilOwnedByCardId?.[card.id] ?? 0) > 0) owned++;
+        }
+      }
+      map[section.setId] = owned;
+    }
+    return map;
+  }, [sections, ownedByCardId, foilOwnedByCardId]);
+  const flat = useMemo(
+    () => flattenSections(sections, showSetHeaders, ownedBySet),
+    [sections, showSetHeaders, ownedBySet],
+  );
   const useSingleColumn = width < 640;
-  const columnCount = width >= 1024 ? 3 : 2;
+  // Rarity columns per row: all four side by side on wide screens, 2×2 in between.
+  const bucketsPerRow = width >= 1024 ? 4 : 2;
 
   if (isLoading) {
     return (
@@ -566,16 +497,26 @@ export function CardListView({
           onRefresh={onRefresh}
           refreshing={onRefresh ? isRefreshing : undefined}
           renderItem={({ item }) => {
-            if (item.type === 'rarity') {
-              return <RarityHeader label={item.label} count={item.count} />;
+            if (item.type === 'set') {
+              return <SetHeader label={item.label} count={item.count} owned={item.owned} />;
             }
             if (item.type === 'domain') {
               return (
-                <DomainHeader
+                <DomainBandHeader
                   label={item.label}
                   dot={item.dot}
                   count={item.count}
-                  rarityLabel={item.rarityLabel}
+                  setLabel={item.setLabel}
+                />
+              );
+            }
+            if (item.type === 'rarity') {
+              return (
+                <RaritySubheader
+                  label={item.label}
+                  count={item.count}
+                  domainLabel={item.domainLabel}
+                  dot={item.dot}
                 />
               );
             }
@@ -586,20 +527,21 @@ export function CardListView({
     );
   }
 
-  const renderGroupColumns = (group: DomainGroup) => (
+  // Each rarity bucket is its own column of stacked card rows; the domain band
+  // header above spans all of them, so it stays outside the columns.
+  const renderBandColumns = (band: DomainBand) => (
     <View>
-      {chunkIntoRows(group.cards, columnCount).map((rowCards, rowIndex) => (
+      {chunkIntoRows(RARITY_BUCKETS, bucketsPerRow).map((rowBuckets, rowIndex) => (
         <View key={rowIndex} className="flex-row gap-6">
-          {rowCards.map((card) => (
-            <View key={card._listKey ?? card.id} className="flex-1">
-              {renderCardRow(card, group.singleDomain)}
-            </View>
-          ))}
-          {rowCards.length < columnCount
-            ? Array.from({ length: columnCount - rowCards.length }).map((_, padIndex) => (
-                <View key={`pad_${padIndex}`} className="flex-1" />
-              ))
-            : null}
+          {rowBuckets.map(({ bucket, label }) => {
+            const bucketCards = band.byRarity[bucket];
+            return (
+              <View key={bucket} className="min-w-0 flex-1">
+                <RarityColumnHeader label={label} count={bucketCards.length} />
+                {bucketCards.map((card) => renderCardRow(card, band.singleDomain))}
+              </View>
+            );
+          })}
         </View>
       ))}
     </View>
@@ -610,9 +552,10 @@ export function CardListView({
   ) : undefined;
 
   if (Platform.OS === 'web') {
-    // CSS position: sticky supports two-level stacking: the rarity header pins
-    // at the top, domain headers pin just below it, and each is scoped to its
+    // CSS position: sticky supports two-level stacking: the set header pins at
+    // the top, domain band headers pin just below it, and each is scoped to its
     // section container so the next section pushes them out.
+    const stickyDomain = showSetHeaders ? WEB_STICKY_BAND_BELOW_SET : WEB_STICKY_BAND_TOP;
     return (
       <View className="flex-1 bg-white dark:bg-neutral-950">
         <ScrollView
@@ -622,16 +565,26 @@ export function CardListView({
           {ListHeaderComponent}
           {sections.length === 0 ? emptyList : null}
           {sections.map((section) => (
-            <View key={section.bucket}>
-              <View style={WEB_STICKY_RARITY}>
-                <RarityHeader label={section.label} count={section.count} />
-              </View>
-              {section.groups.map((group) => (
-                <View key={group.key}>
-                  <View style={WEB_STICKY_DOMAIN}>
-                    <DomainHeader label={group.label} dot={group.dot} count={group.cards.length} />
+            <View key={section.setId}>
+              {showSetHeaders ? (
+                <View style={WEB_STICKY_SET}>
+                  <SetHeader
+                    label={section.setLabel}
+                    count={section.count}
+                    owned={ownedBySet?.[section.setId]}
+                  />
+                </View>
+              ) : null}
+              {section.bands.map((band) => (
+                <View key={band.key}>
+                  <View style={stickyDomain}>
+                    <DomainBandHeader
+                      label={band.label}
+                      dot={band.dot}
+                      count={band.cards.length}
+                    />
                   </View>
-                  {renderGroupColumns(group)}
+                  {renderBandColumns(band)}
                 </View>
               ))}
             </View>
@@ -643,7 +596,7 @@ export function CardListView({
 
   // Native ScrollView sticky headers must be direct children, and only one
   // sticks at a time (the next header pushes the previous off), so the section
-  // tree is flattened and domain headers carry their rarity label for context.
+  // tree is flattened and domain headers carry their set label for context.
   const wideChildren: ReactElement[] = [];
   const wideStickyIndices: number[] = [];
   if (ListHeaderComponent) {
@@ -653,27 +606,30 @@ export function CardListView({
     wideChildren.push(<View key="empty">{emptyList}</View>);
   }
   for (const section of sections) {
-    wideStickyIndices.push(wideChildren.length);
-    wideChildren.push(
-      <RarityHeader
-        key={`rarity_${section.bucket}`}
-        label={section.label}
-        count={section.count}
-      />,
-    );
-    for (const group of section.groups) {
+    if (showSetHeaders) {
       wideStickyIndices.push(wideChildren.length);
       wideChildren.push(
-        <DomainHeader
-          key={`domain_${section.bucket}_${group.key}`}
-          label={group.label}
-          dot={group.dot}
-          count={group.cards.length}
-          rarityLabel={section.label}
+        <SetHeader
+          key={`set_${section.setId}`}
+          label={section.setLabel}
+          count={section.count}
+          owned={ownedBySet?.[section.setId]}
+        />,
+      );
+    }
+    for (const band of section.bands) {
+      wideStickyIndices.push(wideChildren.length);
+      wideChildren.push(
+        <DomainBandHeader
+          key={`domain_${section.setId}_${band.key}`}
+          label={band.label}
+          dot={band.dot}
+          count={band.cards.length}
+          setLabel={showSetHeaders ? section.setLabel : undefined}
         />,
       );
       wideChildren.push(
-        <View key={`cards_${section.bucket}_${group.key}`}>{renderGroupColumns(group)}</View>,
+        <View key={`cards_${section.setId}_${band.key}`}>{renderBandColumns(band)}</View>,
       );
     }
   }

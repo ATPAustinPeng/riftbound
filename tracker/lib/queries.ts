@@ -31,51 +31,39 @@ export const COLLECTION_GOALS: Array<{
   statsSubtitle: string;
 }> = [
   {
-    id: 'single_separate',
-    shortLabel: '1 each',
-    description: '1 normal and 1 foil copy of each card (foil only for commons/uncommons).',
-    statsSubtitle: '1+ each',
-  },
-  {
-    id: 'playset_separate',
-    shortLabel: 'Playset',
+    id: 'master',
+    shortLabel: 'Master Set',
     description:
-      'Playset-sized normal and foil copies (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked; foil only for commons/uncommons).',
-    statsSubtitle: '3+ each',
+      '1 of each finish available: 1 nonfoil of every card, plus 1 foil where a foil exists.',
+    statsSubtitle: '1+ each finish',
   },
   {
-    id: 'playset_normal',
-    shortLabel: 'Playset (no foil)',
+    id: 'playset_nonfoil',
+    shortLabel: 'Playset · Nonfoil',
     description:
-      'Playset-sized normal copies (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked); foil not required.',
-    statsSubtitle: '3+ normal',
+      '3 nonfoil copies of each card (Battlefield/Legend 1, Rune 12, Tokens 1); foils not required.',
+    statsSubtitle: '3+ nonfoil',
   },
   {
-    id: 'playset_foil',
-    shortLabel: 'Playset (foil)',
+    id: 'playset_all',
+    shortLabel: 'Playset · All finishes',
     description:
-      'Playset-sized foil copies for commons/uncommons (3 default; Battlefield/Legend fall back to 1 normal, Rune 12 normal; Tokens untracked; non-foil rarities use normal copies).',
-    statsSubtitle: '3+ foil',
-  },
-  {
-    id: 'single_combined',
-    shortLabel: '1 total',
-    description: '1 copy of each card, counting normal and foil together.',
-    statsSubtitle: '1+ combined',
-  },
-  {
-    id: 'playset_combined',
-    shortLabel: '3 total',
-    description:
-      'Playset-sized copies combined (3 default; Battlefield/Legend 1, Rune 12; Tokens untracked), counting normal and foil together.',
-    statsSubtitle: '3+ combined',
+      'Nonfoil playset plus a foil playset where foils exist (3 each; Battlefield/Legend 1, Rune 12, Tokens 1).',
+    statsSubtitle: '3+ each finish',
   },
 ];
 
-export function getPlaysetTarget(cardType: string | null | undefined): number | null {
-  switch ((cardType ?? '').trim()) {
-    case 'Token':
-      return null;
+// Most tokens have T-numbered codes (UNL-T01), but OGN numbers its tokens
+// inside the main sequence (OGN-271/298), so super_type is the reliable marker.
+export function isTokenCard(card: Pick<Card, 'super_type' | 'public_code'>): boolean {
+  return card.super_type === 'Token' || /-T\d/.test(card.public_code ?? '');
+}
+
+export function getCardTarget(
+  card: Pick<Card, 'card_type' | 'super_type' | 'public_code'>,
+): number {
+  if (isTokenCard(card)) return 1;
+  switch ((card.card_type ?? '').trim()) {
     case 'Battlefield':
     case 'Legend':
       return 1;
@@ -88,103 +76,29 @@ export function getPlaysetTarget(cardType: string | null | undefined): number | 
 
 export interface GoalEvaluation {
   target: number;
-  combined: boolean;
+  /** 0 when the goal doesn't require foils for this card */
+  foilTarget: number;
   normalComplete: boolean;
   foilComplete: boolean;
   complete: boolean;
-  untracked: boolean;
 }
 
 export function evaluateGoal(
   goal: CollectionGoal,
   owned: number,
   foil: number,
-  canFoil: boolean,
-  cardType?: string | null,
+  card: Pick<Card, 'card_type' | 'super_type' | 'rarity_id' | 'public_code'>,
 ): GoalEvaluation {
-  const playsetTarget = getPlaysetTarget(cardType);
-  if (playsetTarget === null) {
-    return {
-      target: 0,
-      combined: false,
-      normalComplete: true,
-      foilComplete: true,
-      complete: true,
-      untracked: true,
-    };
-  }
-
-  if (goal === 'playset_foil') {
-    if (!canFoil) {
-      const normalComplete = owned >= playsetTarget;
-      return {
-        target: playsetTarget,
-        combined: false,
-        normalComplete,
-        foilComplete: true,
-        complete: normalComplete,
-        untracked: false,
-      };
-    }
-    const foilComplete = foil >= playsetTarget;
-    return {
-      target: playsetTarget,
-      combined: false,
-      normalComplete: true,
-      foilComplete,
-      complete: foilComplete,
-      untracked: false,
-    };
-  }
-
-  if (goal === 'playset_normal') {
-    const complete = owned >= playsetTarget;
-    return {
-      target: playsetTarget,
-      combined: false,
-      normalComplete: complete,
-      foilComplete: true,
-      complete,
-      untracked: false,
-    };
-  }
-
-  const target = goal.startsWith('single') ? 1 : playsetTarget;
-  const combined = goal.endsWith('combined');
-
-  if (combined) {
-    const total = owned + foil;
-    const complete = total >= target;
-    return {
-      target,
-      combined: true,
-      normalComplete: complete,
-      foilComplete: complete,
-      complete,
-      untracked: false,
-    };
-  }
-
-  const normalComplete = owned >= target;
-  if (!canFoil) {
-    return {
-      target,
-      combined: false,
-      normalComplete,
-      foilComplete: true,
-      complete: normalComplete,
-      untracked: false,
-    };
-  }
-
-  const foilComplete = foil >= target;
+  const cardTarget = goal === 'master' ? 1 : getCardTarget(card);
+  const foilTarget = goal !== 'playset_nonfoil' && canBeFoil(card) ? cardTarget : 0;
+  const normalComplete = owned >= cardTarget;
+  const foilComplete = foil >= foilTarget;
   return {
-    target,
-    combined: false,
+    target: cardTarget,
+    foilTarget,
     normalComplete,
     foilComplete,
     complete: normalComplete && foilComplete,
-    untracked: false,
   };
 }
 
@@ -216,7 +130,6 @@ export interface CardFilters {
   rarityId: string | null;
   domainId: string | null;
   cardType: string | null;
-  sortBy: 'set' | 'color' | 'name';
 }
 
 export const SET_ORDER: Record<string, number> = {
@@ -224,15 +137,6 @@ export const SET_ORDER: Record<string, number> = {
   OGN: 1,
   SFD: 2,
   UNL: 3,
-};
-
-export const DOMAIN_COLOR_ORDER: Record<string, number> = {
-  fury: 0,
-  body: 1,
-  order: 2,
-  calm: 3,
-  mind: 4,
-  chaos: 5,
 };
 
 export const DOMAIN_COLORS: Record<string, { label: string; dot: string }> = {
@@ -246,8 +150,6 @@ export const DOMAIN_COLORS: Record<string, { label: string; dot: string }> = {
 
 export type ViewMode = 'grid' | 'list';
 
-const NO_DOMAIN_SORT_INDEX = 6;
-
 export type FilteredCard = Card & { _listKey: string };
 
 export const defaultCardFilters: CardFilters = {
@@ -256,7 +158,6 @@ export const defaultCardFilters: CardFilters = {
   rarityId: null,
   domainId: null,
   cardType: null,
-  sortBy: 'set',
 };
 
 function throwOnError<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -383,8 +284,8 @@ function countGoalCompleteCards(
     const entry = userCards[card.id];
     const owned = entry?.quantity_owned ?? 0;
     const foil = entry?.quantity_owned_foil ?? 0;
-    const evaluation = evaluateGoal(goal, owned, foil, canBeFoil(card), card.card_type);
-    if (!evaluation.untracked && evaluation.complete) {
+    const evaluation = evaluateGoal(goal, owned, foil, card);
+    if (evaluation.complete) {
       count++;
     }
   }
@@ -585,31 +486,20 @@ export function collectorNumberDisplay(
   return card.collector_number != null ? String(card.collector_number) : null;
 }
 
-function compareCards(a: Card, b: Card): number {
+export function compareCards(a: Card, b: Card): number {
   const pa = collectorParts(a);
   const pb = collectorParts(b);
   if (pa.num !== pb.num) return pa.num - pb.num;
   return pa.suffix.localeCompare(pb.suffix);
 }
 
-function compareSetIds(a: string, b: string): number {
+export function compareSetIds(a: string, b: string): number {
   const orderA = SET_ORDER[a];
   const orderB = SET_ORDER[b];
   if (orderA !== undefined && orderB !== undefined) return orderA - orderB;
   if (orderA !== undefined) return -1;
   if (orderB !== undefined) return 1;
   return a.localeCompare(b);
-}
-
-function colorSortKey(card: Card, index: CardsIndex): { bucket: number; primary: number } {
-  const ids = Array.from(
-    new Set((index.domainsByCardId[card.id] ?? []).map((d) => d.domain_id)),
-  );
-  if (ids.length === 0) {
-    return { bucket: Number.POSITIVE_INFINITY, primary: NO_DOMAIN_SORT_INDEX };
-  }
-  const primary = Math.min(...ids.map((id) => DOMAIN_COLOR_ORDER[id] ?? NO_DOMAIN_SORT_INDEX));
-  return { bucket: ids.length, primary };
 }
 
 export function filterCards(
@@ -631,29 +521,13 @@ export function filterCards(
     return true;
   });
 
-  if (filters.sortBy === 'color') {
-    const sorted = [...filtered].sort((a, b) => {
-      const ka = colorSortKey(a, index);
-      const kb = colorSortKey(b, index);
-      if (ka.primary !== kb.primary) return ka.primary - kb.primary;
-      if (ka.bucket !== kb.bucket) return ka.bucket - kb.bucket;
-      const setCompare = compareSetIds(a.set_id, b.set_id);
-      if (setCompare !== 0) return setCompare;
-      return compareCards(a, b);
-    });
-    return sorted.map((card) => ({ ...card, _listKey: card.id }));
-  }
-
   const sorted = [...filtered].sort((a, b) => {
-    if (filters.sortBy === 'name') {
-      return a.name.localeCompare(b.name);
-    }
     const setCompare = compareSetIds(a.set_id, b.set_id);
     if (setCompare !== 0) return setCompare;
     return compareCards(a, b);
   });
 
-  return sorted.map((card) => ({ ...card, _listKey: `${card.id}_0` }));
+  return sorted.map((card) => ({ ...card, _listKey: card.id }));
 }
 
 export function getUserCardEntry(
@@ -674,8 +548,10 @@ export function getOwnedFoilQuantity(
   return map?.[cardId]?.quantity_owned_foil ?? 0;
 }
 
-export function canBeFoil(card: Pick<Card, 'rarity_id' | 'card_type'>): boolean {
-  if (card.card_type === 'Rune' || card.card_type === 'Token') return false;
+export function canBeFoil(
+  card: Pick<Card, 'rarity_id' | 'card_type' | 'super_type' | 'public_code'>,
+): boolean {
+  if (card.card_type === 'Rune' || isTokenCard(card)) return false;
   return card.rarity_id === 'common' || card.rarity_id === 'uncommon';
 }
 
@@ -862,14 +738,4 @@ export function buildWishlistWithCards(
     })
     .filter((item): item is WishlistItemWithCard => item !== null)
     .sort((a, b) => a.card.name.localeCompare(b.card.name));
-}
-
-export const PLAYSET_SIZE = 3;
-
-export function playsetProgress(quantityOwned: number): { owned: number; target: number; complete: boolean } {
-  return {
-    owned: Math.min(quantityOwned, PLAYSET_SIZE),
-    target: PLAYSET_SIZE,
-    complete: quantityOwned >= PLAYSET_SIZE,
-  };
 }

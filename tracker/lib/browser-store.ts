@@ -13,7 +13,6 @@ interface BrowserState {
   numColumns: number;
   viewMode: ViewMode;
   collectionView: CollectionView;
-  groupBySet: boolean;
   hideComplete: boolean;
 }
 
@@ -22,7 +21,6 @@ let state: BrowserState = {
   numColumns: 6,
   viewMode: 'grid',
   collectionView: 'owned',
-  groupBySet: false,
   hideComplete: false,
 };
 
@@ -63,11 +61,6 @@ export function setCollectionView(collectionView: CollectionView) {
   emitChange();
 }
 
-export function setGroupBySet(groupBySet: boolean) {
-  state = { ...state, groupBySet };
-  emitChange();
-}
-
 export function setHideComplete(hideComplete: boolean) {
   state = { ...state, hideComplete };
   emitChange();
@@ -80,13 +73,11 @@ export function useBrowserState() {
     numColumns: snapshot.numColumns,
     viewMode: snapshot.viewMode,
     collectionView: snapshot.collectionView,
-    groupBySet: snapshot.groupBySet,
     hideComplete: snapshot.hideComplete,
     setFilters,
     setNumColumns,
     setViewMode,
     setCollectionView,
-    setGroupBySet,
     setHideComplete,
   };
 }
