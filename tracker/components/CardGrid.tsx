@@ -37,10 +37,12 @@ type GridFlatItem =
   | {
       type: 'band';
       key: string;
+      bandStateKey: string;
       label: string;
       dot?: string;
       count: number;
       setLabel?: string;
+      collapsed: boolean;
     }
   | { type: 'row'; key: string; cards: FilteredCard[] };
 
@@ -56,6 +58,8 @@ interface CardGridProps {
   quickAdd?: boolean;
   dimMissing?: boolean;
   goal?: CollectionGoal;
+  collapsedBands?: Record<string, boolean>;
+  onToggleBand?: (key: string) => void;
   onOwnedChange?: (cardId: string, next: number) => void;
   onFoilOwnedChange?: (cardId: string, next: number) => void;
   onForSaleChange?: (cardId: string, next: number) => void;
@@ -103,6 +107,8 @@ export function CardGrid({
   quickAdd = false,
   dimMissing = false,
   goal,
+  collapsedBands,
+  onToggleBand,
   onOwnedChange,
   onFoilOwnedChange,
   onForSaleChange,
@@ -150,15 +156,20 @@ export function CardGrid({
         });
       }
       for (const band of section.bands) {
+        const bandStateKey = `${section.setId}_${band.key}`;
+        const collapsed = !!collapsedBands?.[bandStateKey];
         stickyIndices.push(items.length);
         items.push({
           type: 'band',
           key: `band_${section.setId}_${band.key}`,
+          bandStateKey,
           label: band.label,
           dot: band.dot,
           count: band.cards.length,
           setLabel: showSetHeaders ? section.setLabel : undefined,
+          collapsed,
         });
+        if (collapsed) continue;
         chunkRows(band.cards, numColumns).forEach((rowCards, i) => {
           items.push({
             type: 'row',
@@ -169,7 +180,7 @@ export function CardGrid({
       }
     }
     return { items, stickyIndices };
-  }, [sections, showSetHeaders, ownedBySet, numColumns]);
+  }, [sections, showSetHeaders, ownedBySet, numColumns, collapsedBands]);
 
   const renderTile = (item: FilteredCard) => {
     const owned = ownedByCardId?.[item.id] ?? 0;
@@ -185,12 +196,18 @@ export function CardGrid({
         wishlisted={wishlistedIds?.has(item.id)}
         showSteppers={showSteppers}
         quickAdd={quickAdd}
-        onOwnedChange={onOwnedChange ? (next) => onOwnedChange(item.id, next) : undefined}
+        // Per-tile closures defeat CardTile's memo (new identity every render),
+        // so quick-add mode uses only the stable id-aware callbacks below.
+        onOwnedChange={
+          showSteppers && onOwnedChange ? (next) => onOwnedChange(item.id, next) : undefined
+        }
         onFoilChange={
-          onFoilOwnedChange ? (next) => onFoilOwnedChange(item.id, next) : undefined
+          showSteppers && onFoilOwnedChange
+            ? (next) => onFoilOwnedChange(item.id, next)
+            : undefined
         }
         onForSaleChange={
-          onForSaleChange ? (next) => onForSaleChange(item.id, next) : undefined
+          showSteppers && onForSaleChange ? (next) => onForSaleChange(item.id, next) : undefined
         }
         onQuickOwnedChange={quickAdd ? onOwnedChange : undefined}
         onQuickFoilChange={quickAdd ? onFoilOwnedChange : undefined}
@@ -273,18 +290,41 @@ export function CardGrid({
                   />
                 </View>
               ) : null}
-              {section.bands.map((band) => (
-                <View key={band.key}>
-                  <View style={stickyBand}>
-                    <DomainBandHeader label={band.label} dot={band.dot} count={band.cards.length} />
+              {section.bands.map((band) => {
+                const bandStateKey = `${section.setId}_${band.key}`;
+                const collapsed = !!collapsedBands?.[bandStateKey];
+                return (
+                  <View key={band.key}>
+                    <View style={stickyBand}>
+                      <DomainBandHeader
+                        label={band.label}
+                        dot={band.dot}
+                        count={band.cards.length}
+                        collapsed={collapsed}
+                        onToggle={onToggleBand ? () => onToggleBand(bandStateKey) : undefined}
+                      />
+                    </View>
+                    {/* One wrapping container per band (instead of chunked row
+                        Views) so a card keeps its parent when the layout
+                        reflows — moving cells across rows would remount them
+                        and flash images. Percentage widths stay exact under
+                        scrollbars where px math would wrap columns. */}
+                    {collapsed ? null : (
+                      <View
+                        className="flex-row flex-wrap"
+                        style={{ marginHorizontal: -GRID_GAP / 2, paddingVertical: GRID_GAP / 2 }}>
+                        {band.cards.map((card) => (
+                          <View
+                            key={card._listKey ?? card.id}
+                            style={{ width: `${100 / numColumns}%`, padding: GRID_GAP / 2 }}>
+                            {renderTile(card)}
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                  <View style={{ marginTop: GRID_GAP }}>
-                    {chunkRows(band.cards, numColumns).map((rowCards, i) => (
-                      <View key={`${section.setId}_${band.key}_${i}`}>{renderRow(rowCards)}</View>
-                    ))}
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ))}
         </ScrollView>
@@ -303,6 +343,8 @@ export function CardGrid({
           dot={item.dot}
           count={item.count}
           setLabel={item.setLabel}
+          collapsed={item.collapsed}
+          onToggle={onToggleBand ? () => onToggleBand(item.bandStateKey) : undefined}
         />
       );
     }

@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
 
 // Fixed so web sticky headers know where to pin below the set header.
@@ -51,14 +51,23 @@ export function DomainBandHeader({
   dot,
   count,
   setLabel,
+  collapsed = false,
+  onToggle,
 }: {
   label: string;
   dot?: string;
   count: number;
   setLabel?: string;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }) {
-  return (
+  const content = (
     <View className="flex-row items-end gap-2 border-b border-neutral-200 bg-white pb-2 pt-4 dark:border-neutral-800 dark:bg-neutral-950">
+      {onToggle ? (
+        <Text className="pb-0.5 text-xs text-neutral-400 dark:text-neutral-500">
+          {collapsed ? '▸' : '▾'}
+        </Text>
+      ) : null}
       {setLabel ? (
         <Text className="pb-0.5 text-xs font-medium text-neutral-300 dark:text-neutral-600">
           {setLabel} /
@@ -69,4 +78,7 @@ export function DomainBandHeader({
       <Text className="pb-0.5 text-xs text-neutral-400 dark:text-neutral-500">{count}</Text>
     </View>
   );
+
+  if (!onToggle) return content;
+  return <Pressable onPress={onToggle}>{content}</Pressable>;
 }

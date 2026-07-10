@@ -42,10 +42,12 @@ type ListItem =
   | {
       type: 'domain';
       key: string;
+      bandStateKey: string;
       label: string;
       dot?: string;
       count: number;
       setLabel?: string;
+      collapsed: boolean;
     }
   | {
       type: 'rarity';
@@ -61,6 +63,7 @@ function flattenSections(
   sections: SetSection[],
   showSetHeaders: boolean,
   ownedBySet?: Record<string, number>,
+  collapsedBands?: Record<string, boolean>,
 ): {
   items: ListItem[];
   stickyIndices: number[];
@@ -79,15 +82,20 @@ function flattenSections(
       });
     }
     for (const band of section.bands) {
+      const bandStateKey = `${section.setId}_${band.key}`;
+      const collapsed = !!collapsedBands?.[bandStateKey];
       stickyIndices.push(items.length);
       items.push({
         type: 'domain',
         key: `domain_${section.setId}_${band.key}`,
+        bandStateKey,
         label: band.label,
         dot: band.dot,
         count: band.cards.length,
         setLabel: showSetHeaders ? section.setLabel : undefined,
+        collapsed,
       });
+      if (collapsed) continue;
       for (const { bucket, label } of RARITY_BUCKETS) {
         const bucketCards = band.byRarity[bucket];
         if (bucketCards.length === 0) continue;
@@ -175,6 +183,8 @@ interface CardListViewProps {
   emptyMessage?: string;
   ListHeaderComponent?: ReactElement | null;
   dimMissing?: boolean;
+  collapsedBands?: Record<string, boolean>;
+  onToggleBand?: (key: string) => void;
 }
 
 function CompactButton({
@@ -410,6 +420,8 @@ export function CardListView({
   emptyMessage = 'No cards match your filters.',
   ListHeaderComponent,
   dimMissing = false,
+  collapsedBands,
+  onToggleBand,
 }: CardListViewProps) {
   const { width } = useWindowDimensions();
   const sections = useMemo(() => buildSetSections(cards, index), [cards, index]);
@@ -429,8 +441,8 @@ export function CardListView({
     return map;
   }, [sections, ownedByCardId, foilOwnedByCardId]);
   const flat = useMemo(
-    () => flattenSections(sections, showSetHeaders, ownedBySet),
-    [sections, showSetHeaders, ownedBySet],
+    () => flattenSections(sections, showSetHeaders, ownedBySet, collapsedBands),
+    [sections, showSetHeaders, ownedBySet, collapsedBands],
   );
   const useSingleColumn = width < 640;
   // Rarity columns per row: all four side by side on wide screens, 2×2 in between.
@@ -507,6 +519,8 @@ export function CardListView({
                   dot={item.dot}
                   count={item.count}
                   setLabel={item.setLabel}
+                  collapsed={item.collapsed}
+                  onToggle={onToggleBand ? () => onToggleBand(item.bandStateKey) : undefined}
                 />
               );
             }
@@ -575,18 +589,24 @@ export function CardListView({
                   />
                 </View>
               ) : null}
-              {section.bands.map((band) => (
-                <View key={band.key}>
-                  <View style={stickyDomain}>
-                    <DomainBandHeader
-                      label={band.label}
-                      dot={band.dot}
-                      count={band.cards.length}
-                    />
+              {section.bands.map((band) => {
+                const bandStateKey = `${section.setId}_${band.key}`;
+                const collapsed = !!collapsedBands?.[bandStateKey];
+                return (
+                  <View key={band.key}>
+                    <View style={stickyDomain}>
+                      <DomainBandHeader
+                        label={band.label}
+                        dot={band.dot}
+                        count={band.cards.length}
+                        collapsed={collapsed}
+                        onToggle={onToggleBand ? () => onToggleBand(bandStateKey) : undefined}
+                      />
+                    </View>
+                    {collapsed ? null : renderBandColumns(band)}
                   </View>
-                  {renderBandColumns(band)}
-                </View>
-              ))}
+                );
+              })}
             </View>
           ))}
         </ScrollView>
@@ -618,6 +638,8 @@ export function CardListView({
       );
     }
     for (const band of section.bands) {
+      const bandStateKey = `${section.setId}_${band.key}`;
+      const collapsed = !!collapsedBands?.[bandStateKey];
       wideStickyIndices.push(wideChildren.length);
       wideChildren.push(
         <DomainBandHeader
@@ -626,11 +648,15 @@ export function CardListView({
           dot={band.dot}
           count={band.cards.length}
           setLabel={showSetHeaders ? section.setLabel : undefined}
+          collapsed={collapsed}
+          onToggle={onToggleBand ? () => onToggleBand(bandStateKey) : undefined}
         />,
       );
-      wideChildren.push(
-        <View key={`cards_${section.setId}_${band.key}`}>{renderBandColumns(band)}</View>,
-      );
+      if (!collapsed) {
+        wideChildren.push(
+          <View key={`cards_${section.setId}_${band.key}`}>{renderBandColumns(band)}</View>,
+        );
+      }
     }
   }
 

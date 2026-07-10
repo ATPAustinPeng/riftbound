@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -66,7 +66,14 @@ function CountPill({
   }, [serverCount]);
 
   const countScale = useSharedValue(1);
+  const hasMounted = useRef(false);
   useEffect(() => {
+    // Pop only on count changes — mount included would make every tile's
+    // number flash when the grid remounts cells.
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
     countScale.value = withSequence(
       withTiming(1.35, { duration: 90 }),
       withTiming(1, { duration: 90 }),

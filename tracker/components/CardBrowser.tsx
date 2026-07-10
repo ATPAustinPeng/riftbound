@@ -83,6 +83,8 @@ export function CardBrowser({
     setCollectionView,
     hideComplete,
     setHideComplete,
+    collapsedBands,
+    toggleBandCollapsed,
   } = useBrowserState();
   const { goal } = useCollectionGoal();
   const [exportModalVisible, setExportModalVisible] = useState(false);
@@ -233,6 +235,8 @@ export function CardBrowser({
         goal={goal}
         quickAdd={quickAdd}
         dimMissing={dimMissing}
+        collapsedBands={collapsedBands}
+        onToggleBand={toggleBandCollapsed}
         onOwnedChange={onOwnedChange}
         onFoilOwnedChange={onFoilOwnedChange}
         isLoading={isLoading}
@@ -258,6 +262,8 @@ export function CardBrowser({
       quickAdd={quickAdd}
       dimMissing={dimMissing}
       goal={goal}
+      collapsedBands={collapsedBands}
+      onToggleBand={toggleBandCollapsed}
       onOwnedChange={onOwnedChange}
       onFoilOwnedChange={onFoilOwnedChange}
       onForSaleChange={onForSaleChange}

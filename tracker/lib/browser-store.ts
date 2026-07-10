@@ -14,6 +14,8 @@ interface BrowserState {
   viewMode: ViewMode;
   collectionView: CollectionView;
   hideComplete: boolean;
+  /** Collapsed domain bands, keyed `${setId}_${bandKey}`; shared by grid and list */
+  collapsedBands: Record<string, boolean>;
 }
 
 let state: BrowserState = {
@@ -22,6 +24,7 @@ let state: BrowserState = {
   viewMode: 'grid',
   collectionView: 'owned',
   hideComplete: false,
+  collapsedBands: {},
 };
 
 const listeners = new Set<() => void>();
@@ -66,6 +69,14 @@ export function setHideComplete(hideComplete: boolean) {
   emitChange();
 }
 
+export function toggleBandCollapsed(key: string) {
+  const collapsedBands = { ...state.collapsedBands };
+  if (collapsedBands[key]) delete collapsedBands[key];
+  else collapsedBands[key] = true;
+  state = { ...state, collapsedBands };
+  emitChange();
+}
+
 export function useBrowserState() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return {
@@ -74,10 +85,12 @@ export function useBrowserState() {
     viewMode: snapshot.viewMode,
     collectionView: snapshot.collectionView,
     hideComplete: snapshot.hideComplete,
+    collapsedBands: snapshot.collapsedBands,
     setFilters,
     setNumColumns,
     setViewMode,
     setCollectionView,
     setHideComplete,
+    toggleBandCollapsed,
   };
 }
