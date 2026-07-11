@@ -8,17 +8,8 @@ import { CollectionGoalSelector } from '@/components/CollectionGoalSelector';
 import { ExportMissingModal } from '@/components/ExportMissingModal';
 import { FilterBar } from '@/components/FilterBar';
 import { useBrowserState } from '@/lib/browser-store';
-import {
-  buildMissingRows,
-  missingCsvFilename,
-  rowsToCsv,
-} from '@/lib/export-missing';
-import {
-  evaluateGoal,
-  filterCards,
-  useCollectionGoal,
-  type CardsIndex,
-} from '@/lib/queries';
+import { buildMissingRows, missingCsvFilename, rowsToCsv } from '@/lib/export-missing';
+import { evaluateGoal, filterCards, useCollectionGoal, type CardsIndex } from '@/lib/queries';
 import type { Card } from '@/lib/types';
 
 interface CardBrowserProps {
@@ -44,7 +35,10 @@ interface CardBrowserProps {
   showCollectionControls?: boolean;
 }
 
-const COLLECTION_VIEW_OPTIONS: Array<{ id: 'owned' | 'missing' | 'all'; label: string }> = [
+const COLLECTION_VIEW_OPTIONS: Array<{
+  id: 'owned' | 'missing' | 'all';
+  label: string;
+}> = [
   { id: 'owned', label: 'Owned' },
   { id: 'missing', label: 'Missing' },
   { id: 'all', label: 'All' },
@@ -124,13 +118,7 @@ export function CardBrowser({
   ]);
 
   const missingExport = useMemo(() => {
-    const rows = buildMissingRows(
-      filteredBySearch,
-      index,
-      ownedByCardId,
-      foilOwnedByCardId,
-      goal,
-    );
+    const rows = buildMissingRows(filteredBySearch, index, ownedByCardId, foilOwnedByCardId, goal);
     return { rows, csv: rowsToCsv(rows), count: rows.length };
   }, [filteredBySearch, index, ownedByCardId, foilOwnedByCardId, goal]);
 
@@ -209,71 +197,80 @@ export function CardBrowser({
       {headerExtra}
       {collectionControls}
       {showGoalSelector ? <CollectionGoalSelector compact /> : null}
-      <FilterBar
-        filters={filters}
-        onChange={setFilters}
-        index={index}
-        numColumns={numColumns}
-        onColumnsChange={setNumColumns}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-      />
-      <Text className="px-4 pt-2 text-xs text-neutral-500">
-        {filteredCards.length} card{filteredCards.length === 1 ? '' : 's'}
-      </Text>
     </View>
+  );
+
+  // FilterBar lives outside the scroll container so set/search/view/filter
+  // controls stay pinned while the cards scroll beneath.
+  const filterBar = (
+    <FilterBar
+      filters={filters}
+      onChange={setFilters}
+      index={index}
+      numColumns={numColumns}
+      onColumnsChange={setNumColumns}
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
+      resultCount={filteredCards.length}
+    />
   );
 
   if (viewMode === 'list') {
     return (
-      <CardListView
+      <View className="flex-1 bg-white dark:bg-neutral-950">
+        {filterBar}
+        <CardListView
+          cards={filteredCards}
+          index={index}
+          ownedByCardId={ownedByCardId}
+          foilOwnedByCardId={foilOwnedByCardId}
+          quantityMode={effectiveListQuantityMode}
+          goal={goal}
+          quickAdd={quickAdd}
+          dimMissing={dimMissing}
+          collapsedBands={collapsedBands}
+          onToggleBand={toggleBandCollapsed}
+          onOwnedChange={onOwnedChange}
+          onFoilOwnedChange={onFoilOwnedChange}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={onRetry}
+          onRefresh={onRefresh}
+          isRefreshing={isRefreshing}
+          emptyMessage={emptyMessage}
+          ListHeaderComponent={header}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-white dark:bg-neutral-950">
+      {filterBar}
+      <CardGrid
         cards={filteredCards}
         index={index}
+        numColumns={numColumns}
         ownedByCardId={ownedByCardId}
         foilOwnedByCardId={foilOwnedByCardId}
-        quantityMode={effectiveListQuantityMode}
-        goal={goal}
+        forSaleByCardId={forSaleByCardId}
+        wishlistedIds={wishlistedIds}
         quickAdd={quickAdd}
         dimMissing={dimMissing}
+        goal={goal}
         collapsedBands={collapsedBands}
         onToggleBand={toggleBandCollapsed}
         onOwnedChange={onOwnedChange}
         onFoilOwnedChange={onFoilOwnedChange}
+        onForSaleChange={onForSaleChange}
         isLoading={isLoading}
         isError={isError}
         onRetry={onRetry}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
-        emptyMessage={emptyMessage}
         ListHeaderComponent={header}
+        emptyMessage={emptyMessage}
       />
-    );
-  }
-
-  return (
-    <CardGrid
-      cards={filteredCards}
-      index={index}
-      numColumns={numColumns}
-      ownedByCardId={ownedByCardId}
-      foilOwnedByCardId={foilOwnedByCardId}
-      forSaleByCardId={forSaleByCardId}
-      wishlistedIds={wishlistedIds}
-      quickAdd={quickAdd}
-      dimMissing={dimMissing}
-      goal={goal}
-      collapsedBands={collapsedBands}
-      onToggleBand={toggleBandCollapsed}
-      onOwnedChange={onOwnedChange}
-      onFoilOwnedChange={onFoilOwnedChange}
-      onForSaleChange={onForSaleChange}
-      isLoading={isLoading}
-      isError={isError}
-      onRetry={onRetry}
-      onRefresh={onRefresh}
-      isRefreshing={isRefreshing}
-      ListHeaderComponent={header}
-      emptyMessage={emptyMessage}
-    />
+    </View>
   );
 }

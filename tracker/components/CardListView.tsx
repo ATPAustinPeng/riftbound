@@ -45,6 +45,7 @@ type ListItem =
       bandStateKey: string;
       label: string;
       dot?: string;
+      tint?: string;
       count: number;
       setLabel?: string;
       collapsed: boolean;
@@ -91,6 +92,7 @@ function flattenSections(
         bandStateKey,
         label: band.label,
         dot: band.dot,
+        tint: band.tint,
         count: band.cards.length,
         setLabel: showSetHeaders ? section.setLabel : undefined,
         collapsed,
@@ -236,7 +238,7 @@ function ProgressRow({
             style={{ width: `${target > 0 ? (capped / target) * 100 : 0}%` }}
           />
         </View>
-        <Text className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+        <Text className="text-xs font-semibold tabular-nums text-neutral-700 dark:text-neutral-300">
           {capped}/{target}
         </Text>
         {showControls ? (
@@ -326,7 +328,7 @@ const CardListRow = memo(function CardListRow({
             <View className="flex-row items-end gap-2">
               {onOwnedChange ? (
                 <View className="items-end gap-1">
-                  <Text className="h-4 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  <Text className="h-4 text-xs font-semibold tabular-nums text-blue-600 dark:text-blue-400">
                     {owned > 0 ? `×${owned}` : ''}
                   </Text>
                   <View className="flex-row items-center gap-0.5">
@@ -346,7 +348,7 @@ const CardListRow = memo(function CardListRow({
                 <View
                   pointerEvents={cardCanFoil ? 'auto' : 'none'}
                   className={`items-end gap-1 ${cardCanFoil ? '' : 'opacity-0'}`}>
-                  <Text className="h-4 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <Text className="h-4 text-xs font-semibold tabular-nums text-amber-600 dark:text-amber-400">
                     {cardCanFoil && foilOwned > 0 ? `✦×${foilOwned}` : ''}
                   </Text>
                   <View className="flex-row items-center gap-0.5">
@@ -367,10 +369,10 @@ const CardListRow = memo(function CardListRow({
             </View>
           ) : (
             <View className="flex-row items-center">
-              <Text className="h-4 w-8 text-right text-xs font-semibold text-blue-600 dark:text-blue-400">
+              <Text className="h-4 w-8 text-right text-xs font-semibold tabular-nums text-blue-600 dark:text-blue-400">
                 {owned > 0 ? `×${owned}` : ''}
               </Text>
-              <Text className="h-4 w-10 text-right text-xs font-semibold text-amber-600 dark:text-amber-400">
+              <Text className="h-4 w-10 text-right text-xs font-semibold tabular-nums text-amber-600 dark:text-amber-400">
                 {cardCanFoil && foilOwned > 0 ? `✦×${foilOwned}` : ''}
               </Text>
             </View>
@@ -517,6 +519,7 @@ export function CardListView({
                 <DomainBandHeader
                   label={item.label}
                   dot={item.dot}
+                  tint={item.tint}
                   count={item.count}
                   setLabel={item.setLabel}
                   collapsed={item.collapsed}
@@ -542,9 +545,11 @@ export function CardListView({
   }
 
   // Each rarity bucket is its own column of stacked card rows; the domain band
-  // header above spans all of them, so it stays outside the columns.
+  // header above spans all of them, so it stays outside the columns. The
+  // symmetric inset centers the columns under the band header's width so they
+  // read as nested inside the band.
   const renderBandColumns = (band: DomainBand) => (
-    <View>
+    <View className="px-5">
       {chunkIntoRows(RARITY_BUCKETS, bucketsPerRow).map((rowBuckets, rowIndex) => (
         <View key={rowIndex} className="flex-row gap-6">
           {rowBuckets.map(({ bucket, label }) => {
@@ -598,6 +603,7 @@ export function CardListView({
                       <DomainBandHeader
                         label={band.label}
                         dot={band.dot}
+                        tint={band.tint}
                         count={band.cards.length}
                         collapsed={collapsed}
                         onToggle={onToggleBand ? () => onToggleBand(bandStateKey) : undefined}
@@ -646,6 +652,7 @@ export function CardListView({
           key={`domain_${section.setId}_${band.key}`}
           label={band.label}
           dot={band.dot}
+          tint={band.tint}
           count={band.cards.length}
           setLabel={showSetHeaders ? section.setLabel : undefined}
           collapsed={collapsed}

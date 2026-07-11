@@ -29,13 +29,15 @@ export function SetHeader({
   return (
     <View
       style={{ height: SET_HEADER_HEIGHT }}
-      className="flex-row items-end gap-2 border-b border-neutral-200 bg-white pb-2 dark:border-neutral-800 dark:bg-neutral-950">
+      className="flex-row items-center gap-2.5 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
       <Text className="text-lg font-bold text-neutral-900 dark:text-white">{label}</Text>
-      <Text className="pb-1 text-xs text-neutral-400 dark:text-neutral-500">
-        {owned != null ? `${owned}/${count}` : count}
-      </Text>
+      <View className="rounded-full bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+        <Text className="text-[11px] font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
+          {owned != null ? `${owned} / ${count}` : count}
+        </Text>
+      </View>
       {owned != null ? (
-        <View className="mb-1.5 h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+        <View className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
           <View
             className={`h-full rounded-full ${owned >= count ? 'bg-emerald-500' : 'bg-blue-500'}`}
             style={{ width: `${count > 0 ? (owned / count) * 100 : 0}%` }}
@@ -49,6 +51,7 @@ export function SetHeader({
 export function DomainBandHeader({
   label,
   dot,
+  tint,
   count,
   setLabel,
   collapsed = false,
@@ -56,29 +59,53 @@ export function DomainBandHeader({
 }: {
   label: string;
   dot?: string;
+  tint?: string;
   count: number;
   setLabel?: string;
   collapsed?: boolean;
   onToggle?: () => void;
 }) {
   const content = (
-    <View className="flex-row items-end gap-2 border-b border-neutral-200 bg-white pb-2 pt-4 dark:border-neutral-800 dark:bg-neutral-950">
-      {onToggle ? (
-        <Text className="pb-0.5 text-xs text-neutral-400 dark:text-neutral-500">
-          {collapsed ? '▸' : '▾'}
-        </Text>
-      ) : null}
-      {setLabel ? (
-        <Text className="pb-0.5 text-xs font-medium text-neutral-300 dark:text-neutral-600">
-          {setLabel} /
-        </Text>
-      ) : null}
-      {dot ? <View className={`mb-1 h-3 w-3 rounded-full ${dot}`} /> : null}
-      <Text className="text-base font-bold text-neutral-900 dark:text-white">{label}</Text>
-      <Text className="pb-0.5 text-xs text-neutral-400 dark:text-neutral-500">{count}</Text>
+    <View className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+      {/* Domain color owns the band: a left rail + faint wash, so scrolling a
+          set reads as a spectrum. */}
+      <View className={`flex-row items-stretch gap-2.5 ${tint ?? ''}`}>
+        <View className={`w-1 rounded-r-full ${dot ?? 'bg-neutral-300 dark:bg-neutral-700'}`} />
+        <View className="flex-1 flex-row items-center gap-2 py-2.5 pr-2">
+          {onToggle ? (
+            <View className="h-6 w-6 items-center justify-center rounded-full bg-neutral-900/5 dark:bg-white/10">
+              <Text
+                className="text-[10px] leading-none text-neutral-600 dark:text-neutral-300"
+                style={{ transform: [{ rotate: collapsed ? '-90deg' : '0deg' }] }}>
+                ▼
+              </Text>
+            </View>
+          ) : null}
+          {setLabel ? (
+            <Text className="text-xs font-medium text-neutral-400 dark:text-neutral-600">
+              {setLabel} /
+            </Text>
+          ) : null}
+          <Text className="text-base font-bold text-neutral-900 dark:text-white">{label}</Text>
+          <View className="rounded-full bg-neutral-900/5 px-2 py-0.5 dark:bg-white/10">
+            <Text className="text-[11px] font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
+              {count}
+            </Text>
+          </View>
+        </View>
+      </View>
     </View>
   );
 
   if (!onToggle) return content;
-  return <Pressable onPress={onToggle}>{content}</Pressable>;
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: !collapsed }}
+      accessibilityLabel={`${label}, ${count} cards, ${collapsed ? 'collapsed' : 'expanded'}`}
+      className="hover:bg-neutral-50 active:opacity-70 dark:hover:bg-neutral-900">
+      {content}
+    </Pressable>
+  );
 }

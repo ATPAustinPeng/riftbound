@@ -139,13 +139,15 @@ export const SET_ORDER: Record<string, number> = {
   UNL: 3,
 };
 
-export const DOMAIN_COLORS: Record<string, { label: string; dot: string }> = {
-  fury: { label: 'Fury', dot: 'bg-red-500' },
-  body: { label: 'Body', dot: 'bg-orange-500' },
-  order: { label: 'Order', dot: 'bg-yellow-400' },
-  calm: { label: 'Calm', dot: 'bg-green-500' },
-  mind: { label: 'Mind', dot: 'bg-blue-500' },
-  chaos: { label: 'Chaos', dot: 'bg-purple-500' },
+// `tint` is a faint wash used behind band headers; literal classes so the
+// Tailwind JIT can see them.
+export const DOMAIN_COLORS: Record<string, { label: string; dot: string; tint: string }> = {
+  fury: { label: 'Fury', dot: 'bg-red-500', tint: 'bg-red-500/5' },
+  body: { label: 'Body', dot: 'bg-orange-500', tint: 'bg-orange-500/5' },
+  order: { label: 'Order', dot: 'bg-yellow-400', tint: 'bg-yellow-400/5' },
+  calm: { label: 'Calm', dot: 'bg-green-500', tint: 'bg-green-500/5' },
+  mind: { label: 'Mind', dot: 'bg-blue-500', tint: 'bg-blue-500/5' },
+  chaos: { label: 'Chaos', dot: 'bg-purple-500', tint: 'bg-purple-500/5' },
 };
 
 export type ViewMode = 'grid' | 'list';

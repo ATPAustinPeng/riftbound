@@ -18,6 +18,37 @@ interface FilterBarProps {
   onColumnsChange: (n: number) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  resultCount?: number;
+}
+
+function ViewToggle({
+  viewMode,
+  onChange,
+}: {
+  viewMode: ViewMode;
+  onChange: (mode: ViewMode) => void;
+}) {
+  return (
+    <View className="h-9 flex-row overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700">
+      {(['grid', 'list'] as ViewMode[]).map((mode) => (
+        <Pressable
+          key={mode}
+          onPress={() => onChange(mode)}
+          className={`h-full items-center justify-center px-3.5 ${
+            viewMode === mode
+              ? 'bg-blue-600'
+              : 'bg-white active:bg-neutral-100 dark:bg-neutral-900 dark:active:bg-neutral-800'
+          }`}>
+          <Text
+            className={`text-xs font-medium ${
+              viewMode === mode ? 'text-white' : 'text-neutral-600 dark:text-neutral-300'
+            }`}>
+            {mode === 'grid' ? 'Grid' : 'List'}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
 }
 
 type FilterKey = 'rarityId' | 'domainId' | 'cardType';
@@ -63,7 +94,7 @@ function SetTab({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} className="px-3 py-2 active:opacity-60">
+    <Pressable onPress={onPress} className="px-3 py-1.5 active:opacity-60">
       <Text
         className={`text-sm ${active ? 'font-bold text-neutral-900 dark:text-white' : 'font-medium text-neutral-500 dark:text-neutral-400'}`}>
         {label}
@@ -105,6 +136,7 @@ export function FilterBar({
   onColumnsChange,
   viewMode,
   onViewModeChange,
+  resultCount,
 }: FilterBarProps) {
   const [expanded, setExpanded] = useState<FilterKey | null>(null);
 
@@ -140,52 +172,33 @@ export function FilterBar({
   ).length;
 
   return (
-    <View className="gap-3 border-b border-neutral-200 bg-white px-4 pb-3 pt-2 dark:border-neutral-800 dark:bg-neutral-950">
+    <View className="gap-2 border-b border-neutral-200 bg-white px-4 pb-2.5 pt-1 dark:border-neutral-800 dark:bg-neutral-950">
       <SetTabs
         sets={index.sets}
         activeSetId={filters.setId}
         onSelect={(setId) => onChange({ ...filters, setId })}
       />
 
-      <TextInput
-        value={filters.search}
-        onChangeText={(search) => onChange({ ...filters, search })}
-        placeholder="Search by name…"
-        placeholderTextColor="#9ca3af"
-        autoCapitalize="none"
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-        className="rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-      />
-
-      <View className="gap-2">
+      <View className="flex-row flex-wrap items-center gap-2">
+        <TextInput
+          value={filters.search}
+          onChangeText={(search) => onChange({ ...filters, search })}
+          placeholder="Search by name…"
+          placeholderTextColor="#9ca3af"
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          className="h-9 min-w-[160px] max-w-xs flex-1 rounded-lg border border-neutral-300 bg-neutral-50 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+        />
+        <ViewToggle viewMode={viewMode} onChange={onViewModeChange} />
         {viewMode === 'grid' ? (
-          <View className="flex-row items-center gap-3">
-            <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-              Columns
-            </Text>
-            <ColumnSlider value={numColumns} min={3} max={8} onChange={onColumnsChange} />
-            <Text className="w-4 text-right text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+          <View className="flex-row items-center gap-1.5">
+            <ColumnSlider value={numColumns} min={3} max={8} onChange={onColumnsChange} width={96} />
+            <Text className="w-3 text-xs font-semibold tabular-nums text-neutral-700 dark:text-neutral-300">
               {numColumns}
             </Text>
           </View>
         ) : null}
-        <View className="flex-row flex-wrap items-center gap-2">
-          <Text className="text-xs font-medium text-neutral-500 dark:text-neutral-400">View</Text>
-          <FilterChip
-            label="Grid"
-            active={viewMode === 'grid'}
-            onPress={() => onViewModeChange('grid')}
-          />
-          <FilterChip
-            label="List"
-            active={viewMode === 'list'}
-            onPress={() => onViewModeChange('list')}
-          />
-        </View>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
         <FilterChip
           label={activeCount > 0 ? `Filters (${activeCount})` : 'Filters'}
           active={expanded !== null || activeCount > 0}
@@ -216,7 +229,12 @@ export function FilterBar({
             }
           />
         ) : null}
-      </ScrollView>
+        {resultCount != null ? (
+          <Text className="ml-auto text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+            {resultCount} card{resultCount === 1 ? '' : 's'}
+          </Text>
+        ) : null}
+      </View>
 
       {expanded ? (
         <View className="gap-2">

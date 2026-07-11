@@ -11,6 +11,8 @@ interface ColumnSliderProps {
   min?: number;
   max?: number;
   onChange: (n: number) => void;
+  /** Fixed track width; defaults to a quarter of the screen */
+  width?: number;
 }
 
 const THUMB_SIZE = 20;
@@ -29,9 +31,9 @@ function setBodySelectable(selectable: boolean) {
  * Drag-only (a plain tap does nothing); uses core PanResponder so it works
  * on web and native without a native module.
  */
-export function ColumnSlider({ value, min = 3, max = 8, onChange }: ColumnSliderProps) {
+export function ColumnSlider({ value, min = 3, max = 8, onChange, width }: ColumnSliderProps) {
   const { width: screenWidth } = useWindowDimensions();
-  const sliderWidth = Math.round(screenWidth / 4);
+  const sliderWidth = width ?? Math.round(screenWidth / 4);
   const [trackWidth, setTrackWidth] = useState(0);
 
   // Keep the latest props in a ref so the (once-created) PanResponder reads fresh values.

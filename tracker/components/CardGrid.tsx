@@ -40,6 +40,7 @@ type GridFlatItem =
       bandStateKey: string;
       label: string;
       dot?: string;
+      tint?: string;
       count: number;
       setLabel?: string;
       collapsed: boolean;
@@ -165,6 +166,7 @@ export function CardGrid({
           bandStateKey,
           label: band.label,
           dot: band.dot,
+          tint: band.tint,
           count: band.cards.length,
           setLabel: showSetHeaders ? section.setLabel : undefined,
           collapsed,
@@ -299,6 +301,7 @@ export function CardGrid({
                       <DomainBandHeader
                         label={band.label}
                         dot={band.dot}
+                        tint={band.tint}
                         count={band.cards.length}
                         collapsed={collapsed}
                         onToggle={onToggleBand ? () => onToggleBand(bandStateKey) : undefined}
@@ -341,6 +344,7 @@ export function CardGrid({
         <DomainBandHeader
           label={item.label}
           dot={item.dot}
+          tint={item.tint}
           count={item.count}
           setLabel={item.setLabel}
           collapsed={item.collapsed}

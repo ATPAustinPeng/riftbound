@@ -22,6 +22,7 @@ export interface DomainBand {
   key: string; // domain id | 'multi' | 'tokens'
   label: string;
   dot?: string;
+  tint?: string;
   /** false only for 'multi' — single-domain bands hide per-row domain chips */
   singleDomain: boolean;
   cards: FilteredCard[];
@@ -65,12 +66,17 @@ function bandKeyOf(card: FilteredCard, index: CardsIndex): string {
   return ids[0];
 }
 
-function bandMeta(key: string): { label: string; dot?: string; singleDomain: boolean } {
+function bandMeta(key: string): {
+  label: string;
+  dot?: string;
+  tint?: string;
+  singleDomain: boolean;
+} {
   if (key === 'multi') return { label: 'Multi-Domain', singleDomain: false };
   if (key === 'tokens') return { label: 'Tokens', singleDomain: true };
   if (key === 'colorless') return { label: 'Colorless', singleDomain: true };
   const color = DOMAIN_COLORS[key];
-  return { label: color?.label ?? key, dot: color?.dot, singleDomain: true };
+  return { label: color?.label ?? key, dot: color?.dot, tint: color?.tint, singleDomain: true };
 }
 
 function compareBandKeys(a: string, b: string): number {

@@ -108,7 +108,7 @@ function CountPill({
       <QuickBtn onPress={() => change(display - 1)} label="−" />
       <Animated.Text
         style={countStyle}
-        className={`min-w-[18px] text-center text-xs font-bold ${countColor}`}>
+        className={`min-w-[18px] text-center text-xs font-bold tabular-nums ${countColor}`}>
         {display}
       </Animated.Text>
       <QuickBtn onPress={() => change(display + 1)} label="+" />
